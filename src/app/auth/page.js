@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 const supabase = createClient(
   'https://vrelkjytegukqxgustmj.supabase.co',
@@ -163,7 +164,7 @@ export default function AuthPage() {
             <div>
               <div className="flex justify-between items-center mb-2">
                 <label className="text-xs text-gray-400 font-bold uppercase tracking-widest">Password</label>
-                {mode === "login" && <a href="#" className="text-xs text-[#f0b429] hover:underline">Forgot password?</a>}
+                {mode === "login" && <Link href="/forgot-password" className="text-xs text-[#f0b429] hover:underline">Forgot password?</Link>}
               </div>
               <input name="password" type="password" value={form.password} onChange={handle} placeholder="••••••••"
                 className="w-full bg-[#111827] border border-white/10 rounded-xl px-4 py-3.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#f0b429] transition" />
