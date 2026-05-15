@@ -1,38 +1,27 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
 export async function middleware(request) {
   const { pathname } = request.nextUrl
 
-  // Protect these routes
-  const protectedRoutes = [
-    '/dashboard',
-    '/dashboard/properties',
-    '/dashboard/payments',
-    '/dashboard/tenants',
-    '/dashboard/reminders',
-    '/dashboard/reports',
-    '/dashboard/settings',
-    '/tenant',
-  ]
-
-  const isProtected = protectedRoutes.some(route => 
-    pathname.startsWith(route)
-  )
+  const protectedRoutes = ['/dashboard', '/tenant']
+  const isProtected = protectedRoutes.some(route => pathname.startsWith(route))
 
   if (isProtected) {
-    const token = request.cookies.get('sb-vrelkjytegukqxgustmj-auth-token')
+    const cookieStore = request.cookies
     
-    if (!token) {
-      return NextResponse.redirect(new URL('/auth', request.url))
-    }
-  }
+    // Check all possible Supabase cookie names
+    const hasSession = 
+      cookieStore.get('sb-vrelkjytegukqxgustmj-auth-token') ||
+      cookieStore.get('sb-access-token') ||
+      cookieStore.get('supabase-auth-token') ||
+      cookieStore.get('sb-vrelkjytegukqxgustmj-auth-token-code-verifier') ||
+      // Check any cookie that starts with sb-
+      [...cookieStore.getAll()].some(c => c.name.startsWith('sb-'))
 
-  // Redirect logged in users away from auth page
-  if (pathname === '/auth') {
-    const token = request.cookies.get('sb-vrelkjytegukqxgustmj-auth-token')
-    if (token) {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+    if (!hasSession) {
+      const redirectUrl = new URL('/auth', request.url)
+      redirectUrl.searchParams.set('redirect', pathname)
+      return NextResponse.redirect(redirectUrl)
     }
   }
 
@@ -40,9 +29,5 @@ export async function middleware(request) {
 }
 
 export const config = {
-  matcher: [
-    '/dashboard/:path*',
-    '/tenant/:path*',
-    '/auth',
-  ]
+  matcher: ['/dashboard/:path*', '/tenant/:path*']
 }

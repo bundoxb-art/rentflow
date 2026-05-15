@@ -24,7 +24,7 @@ export default function AuthPage() {
     setError("");
 
     if (mode === "signup") {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
         options: {
@@ -35,8 +35,12 @@ export default function AuthPage() {
           }
         }
       });
-      if (error) { setError(error.message); setLoading(false); return; }
-      setError("✅ Account created! Please check your email to verify.");
+      if (error) {
+        setError(error.message);
+        setLoading(false);
+        return;
+      }
+      setError("✅ Account created! You can now log in.");
       setLoading(false);
       return;
     }
@@ -46,9 +50,26 @@ export default function AuthPage() {
         email: form.email,
         password: form.password,
       });
-      if (error) { setError(error.message); setLoading(false); return; }
-      if (role === "landlord") router.push("/dashboard");
-      else router.push("/tenant");
+
+      if (error) {
+        setError(error.message);
+        setLoading(false);
+        return;
+      }
+
+      if (data?.session) {
+        // Store session manually for mobile compatibility
+        try {
+          localStorage.setItem('supabase_session', JSON.stringify(data.session));
+        } catch(e) {}
+        
+        // Use replace for mobile compatibility
+        const destination = role === "landlord" ? "/dashboard" : "/tenant";
+        window.location.replace(destination);
+        return;
+      }
+
+      setError("Login failed. Please try again.");
       setLoading(false);
     }
   };

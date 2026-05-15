@@ -104,6 +104,28 @@ export default function Dashboard() {
   const unpaidCount = tenants.filter(t => t.status === "unpaid").length;
   const partialCount = tenants.filter(t => t.status === "partial").length;
 
+  // Show skeleton while loading
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0d1117] text-white flex font-sans">
+        <aside className="w-60 bg-[#111827] border-r border-white/5 flex flex-col py-6 flex-shrink-0">
+          <div className="px-6 mb-8">
+            <div className="text-xl font-extrabold text-[#f0b429]">Rent<span className="text-white">Flow</span></div>
+          </div>
+        </aside>
+        <main className="flex-1 p-8">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 bg-white/5 rounded-xl w-64" />
+            <div className="grid grid-cols-4 gap-4">
+              {[1,2,3,4].map(i => <div key={i} className="h-28 bg-white/5 rounded-2xl" />)}
+            </div>
+            <div className="h-64 bg-white/5 rounded-2xl" />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0d1117] text-white flex font-sans">
 
