@@ -1,11 +1,9 @@
 "use client";
 import { useEffect } from "react";
-import { createClient } from "@/lib/supabase-browser";
+import { supabase } from "@/lib/supabase";
 
 export default function HandleAuth() {
   useEffect(() => {
-    const supabase = createClient();
-
     // Handle the hash token from URL
     const handleAuth = async () => {
       const hash = window.location.hash;

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase-browser";
+import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 
 export default function AuthPage() {
@@ -11,7 +11,7 @@ export default function AuthPage() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  const supabase = createClient();
+  
 
   useEffect(() => {
     const handleHashToken = async () => {
@@ -23,7 +23,6 @@ export default function AuthPage() {
         const refreshToken = params.get('refresh_token');
 
         if (accessToken && refreshToken) {
-          const supabase = createClient();
 
           // Set the session using the tokens from URL
           const { data, error } = await supabase.auth.setSession({
@@ -128,7 +127,6 @@ export default function AuthPage() {
   };
 
   const signInWithGoogle = async () => {
-    const supabase = createClient();
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
