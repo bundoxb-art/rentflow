@@ -98,26 +98,33 @@ export default function Dashboard() {
       showToast("Please fill in name and rent amount!");
       return;
     }
-    const { data, error } = await supabase
-      .from("tenants")
-      .insert({
-        name: newT.name,
-        unit: newT.unit,
-        phone: newT.phone,
-        rent_amount: parseInt(newT.rent_amount),
-        status: "unpaid",
-      })
-      .select();
+    
+    try {
+      const { data, error } = await supabase
+        .from("tenants")
+        .insert({
+          name: newT.name,
+          unit: newT.unit || "",
+          phone: newT.phone || "",
+          rent_amount: parseInt(newT.rent_amount),
+          status: "unpaid",
+        })
+        .select();
 
-    if (error) {
-      console.error(error);
-      showToast("Error: " + error.message);
-      return;
+      if (error) {
+        console.error("Add tenant error:", error);
+        showToast("Error: " + error.message);
+        return;
+      }
+
+      setShowAdd(false);
+      setNewT({ name: "", unit: "", property: "", rent_amount: "", phone: "" });
+      showToast("✓ Tenant added successfully!");
+      fetchTenants();
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      showToast("Error adding tenant. Please try again.");
     }
-    setShowAdd(false);
-    setNewT({ name: "", unit: "", property: "", rent_amount: "", phone: "" });
-    showToast("✓ Tenant added successfully!");
-    fetchTenants();
   };
 
   const sendReminder = (t) => {
@@ -213,7 +220,14 @@ export default function Dashboard() {
         <div className="sticky top-0 bg-[#0d1117]/90 backdrop-blur border-b border-white/5 px-8 py-4 flex justify-between items-center z-10">
           <div>
             <h1 className="text-xl font-extrabold">Good morning, {user?.user_metadata?.full_name || user?.email || "there"} 👋</h1>
-            <p className="text-gray-500 text-xs mt-0.5">Monday, May 11 · Here's your rent overview</p>
+            <p className="text-gray-500 text-xs mt-0.5">
+              {new Date().toLocaleDateString('en-KE', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })} · Here&apos;s your rent overview
+            </p>
           </div>
           <button onClick={() => setShowAdd(true)} className="bg-[#f0b429] text-black font-extrabold px-5 py-2.5 rounded-xl text-sm hover:opacity-90 transition">
             + Add Tenant
@@ -354,6 +368,28 @@ export default function Dashboard() {
               {selected.status !== "paid" && (
                 <button onClick={() => markPaid(selected.id)} className="flex-1 bg-green-400 text-black font-extrabold py-3 rounded-xl text-sm hover:opacity-90 transition">
                   ✓ Mark as Paid
+                </button>
+              )}
+              {selected.status !== "paid" && selected.phone && (
+                <button 
+                  onClick={async () => {
+                    showToast("📱 Sending M-Pesa prompt...");
+                    const res = await fetch('/api/mpesa/stk-push', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        phone: selected.phone,
+                        amount: selected.rent_amount,
+                        tenantId: selected.id,
+                        tenantName: selected.name,
+                      })
+                    });
+                    const data = await res.json();
+                    showToast(data.success ? "📱 " + data.message : "❌ " + data.message);
+                    setSelected(null);
+                  }}
+                  className="flex-1 bg-green-400 text-black font-extrabold py-3 rounded-xl text-sm hover:opacity-90 transition">
+                  📱 Send M-Pesa
                 </button>
               )}
               <button onClick={() => sendReminder(selected)} className="flex-1 bg-blue-500/10 text-blue-400 border border-blue-400/20 font-extrabold py-3 rounded-xl text-sm hover:bg-blue-500/20 transition">

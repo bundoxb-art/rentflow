@@ -86,6 +86,27 @@ export default function Payments() {
 
         <div className="px-8 py-6">
 
+          {/* Current Date Banner */}
+          <div className="bg-[#111827] border border-white/5 rounded-2xl p-4 mb-6 flex justify-between items-center">
+            <div>
+              <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">Today</div>
+              <div className="text-lg font-extrabold text-[#f0b429]">
+                {new Date().toLocaleDateString('en-KE', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">Payment Period</div>
+              <div className="text-lg font-extrabold">
+                {new Date().toLocaleDateString('en-KE', { month: 'long', year: 'numeric' })}
+              </div>
+            </div>
+          </div>
+
           {/* STATS */}
           <div className="grid grid-cols-3 gap-4 mb-8">
             {[
