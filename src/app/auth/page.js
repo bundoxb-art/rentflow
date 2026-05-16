@@ -14,6 +14,38 @@ export default function AuthPage() {
   const supabase = createClient();
 
   useEffect(() => {
+    const handleHashToken = async () => {
+      const hash = window.location.hash;
+
+      if (hash && hash.includes('access_token')) {
+        const params = new URLSearchParams(hash.substring(1));
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+
+        if (accessToken && refreshToken) {
+          const supabase = createClient();
+
+          // Set the session using the tokens from URL
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (data?.session) {
+            // Clear the hash from URL
+            window.history.replaceState(null, '', '/auth');
+            // Redirect to dashboard
+            window.location.href = '/dashboard';
+            return;
+          }
+        }
+      }
+    };
+
+    handleHashToken();
+  }, []);
+
+  useEffect(() => {
     // Check if there's a session token in the URL (from OAuth or email login)
     const hash = window.location.hash;
     if (hash && hash.includes('access_token')) {
