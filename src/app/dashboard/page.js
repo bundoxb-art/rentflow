@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSuppressHydrationWarning } from "react";
 import { supabase } from "@/lib/supabase";
 
 const STATUS = {
@@ -221,12 +221,12 @@ export default function Dashboard() {
           <div>
             <h1 className="text-xl font-extrabold">Good morning, {user?.user_metadata?.full_name || user?.email || "there"} 👋</h1>
             <p className="text-gray-500 text-xs mt-0.5">
-              {new Date().toLocaleDateString('en-KE', { 
+              {typeof window !== 'undefined' ? new Date().toLocaleDateString('en-KE', { 
                 weekday: 'long', 
                 year: 'numeric', 
                 month: 'long', 
                 day: 'numeric' 
-              })} · Here&apos;s your rent overview
+              }) : ''} · Here&apos;s your rent overview
             </p>
           </div>
           <button onClick={() => setShowAdd(true)} className="bg-[#f0b429] text-black font-extrabold px-5 py-2.5 rounded-xl text-sm hover:opacity-90 transition">
