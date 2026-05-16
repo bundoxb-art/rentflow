@@ -83,7 +83,10 @@ export default function AuthPage() {
       if (error) { setError(error.message); setLoading(false); return; }
 
       if (data?.session) {
-        window.location.href = role === "landlord" ? "/dashboard" : "/tenant";
+        // Small delay to ensure session is stored
+        await new Promise(resolve => setTimeout(resolve, 500));
+        const destination = role === "landlord" ? "/dashboard" : "/tenant";
+        window.location.href = destination;
         return;
       }
 
@@ -93,10 +96,11 @@ export default function AuthPage() {
   };
 
   const signInWithGoogle = async () => {
+    const supabase = createClient();
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`
+        redirectTo: `https://rentflow-lovat-omega.vercel.app/auth/handle`
       }
     });
   };
