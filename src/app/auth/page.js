@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase-browser";
 import Link from "next/link";
 
@@ -12,6 +12,27 @@ export default function AuthPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   const supabase = createClient();
+
+  useEffect(() => {
+    // Check if there's a session token in the URL (from OAuth or email login)
+    const hash = window.location.hash;
+    if (hash && hash.includes('access_token')) {
+      // Session is in URL hash - Supabase will handle it
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          window.location.href = '/dashboard';
+        }
+      });
+    }
+
+    // Also check if already logged in
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        window.location.href = '/dashboard';
+      }
+    });
+  }, []);
+
   const handle = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const submit = async () => {
