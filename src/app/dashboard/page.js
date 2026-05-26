@@ -30,14 +30,28 @@ export default function Dashboard() {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
-        // Give it a second chance
-        await new Promise(resolve => setTimeout(resolve, 1000))
-        const { data: { session: session2 } } = await supabase.auth.getSession()
-        if (!session2) {
-          window.location.href = '/auth'
-          return
-        }
+        window.location.href = '/auth'
+        return
       }
+
+      // Check if landlord is approved
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single()
+
+      if (profile?.role === 'landlord' && profile?.status === 'pending') {
+        window.location.href = '/pending-approval'
+        return
+      }
+
+      if (profile?.role === 'landlord' && profile?.status === 'rejected') {
+        await supabase.auth.signOut()
+        window.location.href = '/auth?error=account_rejected'
+        return
+      }
+
       fetchTenants()
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
