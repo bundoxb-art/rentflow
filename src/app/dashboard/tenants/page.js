@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
+import Sidebar, { BottomNav } from "@/components/Sidebar";
 
 const fmt = (n) => "KSh " + (n || 0).toLocaleString();
 const STATUS = {
@@ -53,31 +54,13 @@ export default function Tenants() {
   const unpaidCount = tenants.filter(t => t.status === "unpaid").length;
 
   return (
-    <div className="min-h-screen bg-[#0d1117] text-white font-sans flex">
-      <aside className="w-60 bg-[#111827] border-r border-white/5 flex flex-col py-6 flex-shrink-0">
-        <div className="px-6 mb-8">
-          <div className="text-xl font-extrabold text-[#f0b429]">Rent<span className="text-white">Flow</span></div>
-        </div>
-        <nav className="flex flex-col gap-1 px-2 flex-1">
-          {[
-            { icon: "📊", label: "Dashboard", href: "/dashboard" },
-            { icon: "🏢", label: "Properties", href: "/dashboard/properties" },
-            { icon: "👥", label: "Tenants", href: "/dashboard/tenants", active: true },
-            { icon: "💳", label: "Payments", href: "/dashboard/payments" },
-            { icon: "🔔", label: "Reminders", href: "/dashboard/reminders" },
-            { icon: "📄", label: "Reports", href: "/dashboard/reports" },
-            { icon: "⚙️", label: "Settings", href: "/dashboard/settings" },
-          ].map((n, i) => (
-            <Link key={i} href={n.href}
-              className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all ${n.active ? "bg-[#f0b429]/10 text-[#f0b429]" : "text-gray-500 hover:text-white hover:bg-white/5"}`}>
-              <span className="text-lg">{n.icon}</span>
-              <span>{n.label}</span>
-            </Link>
-          ))}
-        </nav>
-      </aside>
+    <div className="min-h-screen bg-[#0d1117] text-white flex font-sans">
+      
+      {/* SIDEBAR */}
+      <Sidebar />
 
-      <main className="flex-1 overflow-auto">
+      {/* MAIN */}
+      <main className="flex-1 overflow-auto pb-20 md:pb-0">
         <div className="sticky top-0 bg-[#0d1117]/90 backdrop-blur border-b border-white/5 px-8 py-4 flex justify-between items-center z-10">
           <div>
             <h1 className="text-xl font-extrabold">Tenants</h1>
@@ -192,9 +175,12 @@ export default function Tenants() {
         </div>
       )}
 
-      <div className={`fixed bottom-6 right-6 bg-[#f0b429] text-black font-extrabold px-5 py-3 rounded-xl text-sm z-[100] transition-all duration-300 ${toast ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"}`}>
+      <div className={`fixed bottom-20 md:bottom-6 right-4 md:right-6 bg-[#f0b429] text-black font-extrabold px-4 md:px-5 py-2.5 md:py-3 rounded-xl text-xs md:text-sm z-[100] transition-all duration-300 max-w-xs ${toast ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"}`}>
         {toast}
       </div>
+
+      {/* MOBILE BOTTOM NAV */}
+      <BottomNav />
     </div>
   );
 }
