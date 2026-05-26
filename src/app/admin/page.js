@@ -5,6 +5,60 @@ import { useRouter } from "next/navigation";
 
 const ADMIN_EMAIL = "bundoxb@gmail.com";
 
+function TenantRequests() {
+  const [requests, setRequests] = useState([]);
+  const [toast, setToast] = useState("");
+
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
+
+  useEffect(() => {
+    supabase.from("tenant_requests").select("*").order("created_at", { ascending: false })
+      .then(({ data }) => setRequests(data || []));
+  }, []);
+
+  const approve = async (req) => {
+    await supabase.from("tenant_requests").update({ status: "approved" }).eq("id", req.id);
+    await supabase.from("profiles").update({ status: "approved" }).eq("id", req.user_id);
+    showToast(`✅ ${req.name} approved!`);
+    setRequests(r => r.map(x => x.id === req.id ? { ...x, status: "approved" } : x));
+  };
+
+  const reject = async (req) => {
+    await supabase.from("tenant_requests").update({ status: "rejected" }).eq("id", req.id);
+    showToast(`❌ ${req.name} rejected!`);
+    setRequests(r => r.map(x => x.id === req.id ? { ...x, status: "rejected" } : x));
+  };
+
+  const pending = requests.filter(r => r.status === "pending");
+
+  return (
+    <div className="bg-[#111827] border border-white/5 rounded-2xl overflow-hidden">
+      {pending.length === 0 ? (
+        <div className="text-center py-10 text-gray-500">No pending tenant requests</div>
+      ) : pending.map((req, i) => (
+        <div key={req.id} className={`flex items-center justify-between p-5 ${i > 0 ? "border-t border-white/5" : ""}`}>
+          <div>
+            <div className="font-bold">{req.name}</div>
+            <div className="text-xs text-gray-500">{req.email} · Unit {req.unit}</div>
+            <div className="text-xs text-gray-600">{req.property_name}</div>
+            {req.message && <div className="text-xs text-gray-400 mt-1 italic">"{req.message}"</div>}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => approve(req)}
+              className="text-xs px-3 py-1.5 rounded-lg bg-green-400/10 text-green-400 border border-green-400/20 font-bold">
+              ✅ Approve
+            </button>
+            <button onClick={() => reject(req)}
+              className="text-xs px-3 py-1.5 rounded-lg bg-red-400/10 text-red-400 border border-red-400/20 font-bold">
+              ❌ Reject
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function AdminPanel() {
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -123,6 +177,12 @@ export default function AdminPanel() {
               <div className="text-2xl font-extrabold" style={{ color: s.color }}>{s.value}</div>
             </div>
           ))}
+        </div>
+
+        {/* TENANT REQUESTS */}
+        <div className="mt-8">
+          <h2 className="text-lg font-extrabold mb-4">🏠 Tenant Requests</h2>
+          <TenantRequests />
         </div>
 
         {/* FILTERS */}
