@@ -76,8 +76,12 @@ export default function AdminPanel() {
 
   const checkAdmin = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user || user.email !== ADMIN_EMAIL) {
-      router.push('/dashboard');
+    if (!user) {
+      window.location.href = '/admin/login';
+      return;
+    }
+    if (user.email !== ADMIN_EMAIL) {
+      window.location.href = '/dashboard';
       return;
     }
     setUser(user);

@@ -66,6 +66,20 @@ export default function Settings() {
             ))}
           </div>
 
+          {user?.email === 'bundoxb@gmail.com' && (
+            <div className="bg-[#111827] border border-red-400/20 rounded-2xl p-6 mb-4">
+              <h2 className="font-extrabold text-lg mb-4 text-red-400">🔐 Admin Access</h2>
+              <a href="/admin"
+                className="block w-full bg-red-500/10 text-red-400 border border-red-400/20 font-extrabold py-3 rounded-xl text-sm hover:bg-red-500/20 transition text-center">
+                → Open Admin Panel
+              </a>
+              <a href="/admin/create-landlord"
+                className="block w-full bg-red-500/10 text-red-400 border border-red-400/20 font-extrabold py-3 rounded-xl text-sm hover:bg-red-500/20 transition text-center mt-2">
+                → Create Landlord Account
+              </a>
+            </div>
+          )}
+
           {/* Danger Zone */}
           <div className="bg-[#111827] border border-red-400/20 rounded-2xl p-6">
             <h2 className="font-extrabold text-lg mb-4 text-red-400">⚠️ Account</h2>
