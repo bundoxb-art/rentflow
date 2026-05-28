@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 const ADMIN_EMAIL = "bundoxb@gmail.com";
 
@@ -177,6 +178,14 @@ export default function AdminPanel() {
               <div className="text-2xl font-extrabold" style={{ color: s.color }}>{s.value}</div>
             </div>
           ))}
+        </div>
+
+        {/* CREATE LANDLORD */}
+        <div className="mb-8">
+          <Link href="/admin/create-landlord"
+            className="bg-[#f0b429] text-black font-extrabold px-5 py-2.5 rounded-xl text-sm hover:opacity-90 transition">
+            + Create Landlord
+          </Link>
         </div>
 
         {/* TENANT REQUESTS */}

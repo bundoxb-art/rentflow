@@ -1,17 +1,17 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 
 export default function AuthPage() {
   const [mode, setMode] = useState("login");
-  const [role, setRole] = useState("landlord");
-  const [step, setStep] = useState(1); // 1=form, 2=otp
-  const [form, setForm] = useState({ 
-    name: "", email: "", phone: "", 
-    password: "", unit: "", property: "", message: "" 
+  const [role, setRole] = useState("tenant");
+  const [step, setStep] = useState(1);
+  const [form, setForm] = useState({
+    name: "", email: "", phone: "",
+    password: "", unit: "", property: "", message: ""
   });
-  const [otp, setOtp] = useState(["","","","","",""]);
+  const [otp, setOtp] = useState(["","","","","","",""]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -21,12 +21,18 @@ export default function AuthPage() {
 
   const handleOtpChange = (index, value) => {
     if (!/^\d*$/.test(value)) return;
+    if (value.length > 1) {
+      const digits = value.replace(/\D/g, '').slice(0, 7);
+      const newOtp = Array(7).fill('');
+      digits.split('').forEach((d, i) => { newOtp[i] = d; });
+      setOtp(newOtp);
+      document.getElementById(`otp-${Math.min(digits.length, 6)}`)?.focus();
+      return;
+    }
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
-    if (value && index < 5) {
-      document.getElementById(`otp-${index + 1}`)?.focus();
-    }
+    if (value && index < 6) document.getElementById(`otp-${index + 1}`)?.focus();
   };
 
   const handleOtpKeyDown = (index, e) => {
@@ -40,19 +46,22 @@ export default function AuthPage() {
     setError("");
 
     if (mode === "signup") {
-      // Validate
-      if (!form.name) { setError("Please enter your full name"); setLoading(false); return; }
-      if (!form.email) { setError("Please enter your email"); setLoading(false); return; }
-      if (!form.password || form.password.length < 6) { 
-        setError("Password must be at least 6 characters"); 
-        setLoading(false); return; 
-      }
-      if (role === "tenant" && !form.unit) { 
-        setError("Please enter your unit number"); 
-        setLoading(false); return; 
+      // Only tenants can self-signup
+      if (role === "landlord") {
+        setError("Landlord accounts are created by admin only. Contact support.");
+        setLoading(false);
+        return;
       }
 
-      // Sign up with Supabase
+      // Validate tenant fields
+      if (!form.name) { setError("Please enter your full name"); setLoading(false); return; }
+      if (!form.email) { setError("Please enter your email"); setLoading(false); return; }
+      if (!form.unit) { setError("Please enter your unit number"); setLoading(false); return; }
+      if (!form.password || form.password.length < 6) {
+        setError("Password must be at least 6 characters");
+        setLoading(false); return;
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
@@ -60,18 +69,17 @@ export default function AuthPage() {
           data: {
             full_name: form.name,
             phone: form.phone,
-            role: role,
+            role: "tenant",
             unit: form.unit,
             property: form.property,
-          },
-          emailRedirectTo: `${window.location.origin}/auth/callback`
+          }
         }
       });
 
       if (error) { setError(error.message); setLoading(false); return; }
 
-      // If tenant — create tenant request
-      if (role === "tenant" && data.user) {
+      // Create tenant request
+      if (data.user) {
         await supabase.from("tenant_requests").insert({
           name: form.name,
           email: form.email,
@@ -84,12 +92,11 @@ export default function AuthPage() {
         });
       }
 
-      // Store info for OTP page
+      // Store for OTP
       localStorage.setItem('rentflow_verify_email', form.email);
-      localStorage.setItem('rentflow_verify_role', role);
+      localStorage.setItem('rentflow_verify_role', 'tenant');
       localStorage.setItem('rentflow_verify_mode', 'signup');
 
-      // Go to OTP step
       setStep(2);
       setSuccess(`📧 Verification code sent to ${form.email}`);
       setLoading(false);
@@ -100,7 +107,7 @@ export default function AuthPage() {
       if (!form.email) { setError("Please enter your email"); setLoading(false); return; }
       if (!form.password) { setError("Please enter your password"); setLoading(false); return; }
 
-      // First verify password
+      // Verify credentials first
       const { data, error } = await supabase.auth.signInWithPassword({
         email: form.email,
         password: form.password,
@@ -109,33 +116,28 @@ export default function AuthPage() {
       if (error) { setError(error.message); setLoading(false); return; }
 
       if (data?.session) {
-        // Send OTP for extra security
-        await supabase.auth.signOut(); // Sign out first
-        
-        // Send OTP via email
+        // Sign out and require OTP
+        await supabase.auth.signOut();
+
+        // Send OTP
         const { error: otpError } = await supabase.auth.signInWithOtp({
           email: form.email,
-          options: {
-            shouldCreateUser: false
-          }
+          options: { shouldCreateUser: false }
         });
 
-        if (otpError) {
-          // If OTP fails just login directly
-          const { data: loginData } = await supabase.auth.signInWithPassword({
-            email: form.email,
-            password: form.password,
-          });
-          if (loginData?.session) {
-            window.location.href = role === "landlord" ? "/dashboard" : "/tenant";
-            return;
-          }
-        }
-
+        // Store for OTP verification
         localStorage.setItem('rentflow_verify_email', form.email);
-        localStorage.setItem('rentflow_verify_role', role);
         localStorage.setItem('rentflow_verify_password', form.password);
         localStorage.setItem('rentflow_verify_mode', 'login');
+
+        // Detect role from profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('email', form.email)
+          .single();
+
+        localStorage.setItem('rentflow_verify_role', profile?.role || 'tenant');
 
         setStep(2);
         setSuccess(`📧 Verification code sent to ${form.email}`);
@@ -145,72 +147,55 @@ export default function AuthPage() {
   };
 
   const verifyOtp = async () => {
-    const otpCode = otp.join("");
-    if (otpCode.length !== 6) { setError("Please enter all 6 digits"); return; }
+    const otpCode = otp.join("").slice(0, 6);
+    if (otpCode.length < 6) { setError("Please enter the complete code"); return; }
 
     setLoading(true);
     setError("");
 
     const email = localStorage.getItem('rentflow_verify_email');
-    const savedRole = localStorage.getItem('rentflow_verify_role') || role;
+    const savedRole = localStorage.getItem('rentflow_verify_role') || 'tenant';
     const verifyMode = localStorage.getItem('rentflow_verify_mode');
+    const password = localStorage.getItem('rentflow_verify_password');
 
     // Try verifying OTP
-    const { data, error } = await supabase.auth.verifyOtp({
-      email,
-      token: otpCode,
-      type: verifyMode === 'login' ? 'email' : 'signup'
-    });
+    let verified = false;
 
-    if (error) {
-      // Try other type
-      const { data: data2, error: error2 } = await supabase.auth.verifyOtp({
+    const types = verifyMode === 'signup' ? ['signup', 'email'] : ['email', 'magiclink'];
+
+    for (const type of types) {
+      const { data, error } = await supabase.auth.verifyOtp({
         email,
         token: otpCode,
-        type: 'email'
+        type
       });
-
-      if (error2) {
-        setError("Invalid code. Please check your email and try again.");
-        setLoading(false);
-        return;
-      }
-
-      if (data2?.session) {
-        handleVerifySuccess(savedRole, verifyMode);
-        return;
+      if (!error && data?.session) {
+        verified = true;
+        break;
       }
     }
 
-    if (data?.session) {
-      handleVerifySuccess(savedRole, verifyMode);
-      return;
-    }
-
-    // For login - try signing in with password after OTP
-    if (verifyMode === 'login') {
-      const password = localStorage.getItem('rentflow_verify_password');
+    // If OTP verification failed, try signing in with password
+    if (!verified && verifyMode === 'login' && password) {
       const { data: loginData } = await supabase.auth.signInWithPassword({
         email, password
       });
-      if (loginData?.session) {
-        handleVerifySuccess(savedRole, verifyMode);
-        return;
-      }
+      if (loginData?.session) verified = true;
     }
 
-    setError("Verification failed. Please try again.");
-    setLoading(false);
-  };
+    if (!verified) {
+      setError("Invalid code. Please try again.");
+      setLoading(false);
+      return;
+    }
 
-  const handleVerifySuccess = async (savedRole, verifyMode) => {
-    // Clear localStorage
+    // Clear stored data
     localStorage.removeItem('rentflow_verify_email');
     localStorage.removeItem('rentflow_verify_role');
     localStorage.removeItem('rentflow_verify_password');
     localStorage.removeItem('rentflow_verify_mode');
 
-    // Check profile status for landlords
+    // Check profile status
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       const { data: profile } = await supabase
@@ -224,7 +209,20 @@ export default function AuthPage() {
         return;
       }
 
+      if (profile?.role === 'landlord' && profile?.status === 'rejected') {
+        await supabase.auth.signOut();
+        setError("Your account has been rejected. Contact support.");
+        setStep(1);
+        setLoading(false);
+        return;
+      }
+
       if (savedRole === 'tenant' && verifyMode === 'signup') {
+        window.location.href = '/tenant-pending';
+        return;
+      }
+
+      if (profile?.role === 'tenant' && profile?.status === 'pending') {
         window.location.href = '/tenant-pending';
         return;
       }
@@ -241,15 +239,16 @@ export default function AuthPage() {
     if (verifyMode === 'signup') {
       await supabase.auth.resend({ type: 'signup', email });
     } else {
-      await supabase.auth.signInWithOtp({ 
-        email, 
-        options: { shouldCreateUser: false } 
+      await supabase.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: false }
       });
     }
 
-    setSuccess("✅ New code sent!");
-    setOtp(["","","","","",""]);
+    setSuccess("✅ New code sent to your email!");
+    setOtp(["","","","","","",""]);
     setTimeout(() => setSuccess(""), 3000);
+    document.getElementById('otp-0')?.focus();
     setLoading(false);
   };
 
@@ -310,43 +309,88 @@ export default function AuthPage() {
           {/* STEP 1 — FORM */}
           {step === 1 && (
             <>
-              {/* Toggle */}
+              {/* Toggle Login/Signup */}
               <div className="bg-[#111827] border border-white/10 rounded-2xl p-1 flex mb-6">
                 {["login", "signup"].map((m) => (
-                  <button key={m} onClick={() => { setMode(m); setError(""); setForm({ name: "", email: "", phone: "", password: "", unit: "", property: "", message: "" }); }}
+                  <button key={m}
+                    onClick={() => { setMode(m); setError(""); setRole(m === "signup" ? "tenant" : role); }}
                     className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${mode === m ? "bg-[#f0b429] text-black" : "text-gray-400 hover:text-white"}`}>
-                    {m === "login" ? "Log In" : "Create Account"}
+                    {m === "login" ? "Log In" : "Sign Up (Tenant)"}
                   </button>
                 ))}
               </div>
 
-              {/* Role */}
-              <div className="mb-6">
-                <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-3">I am a</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { key: "landlord", icon: "🏢", label: "Landlord", sub: "I own/manage properties" },
-                    { key: "tenant", icon: "🏠", label: "Tenant", sub: "I rent a property" },
-                  ].map((r) => (
-                    <button key={r.key} onClick={() => setRole(r.key)}
-                      className={`p-4 rounded-2xl border-2 text-left transition-all ${role === r.key ? "border-[#f0b429] bg-[#f0b429]/10" : "border-white/10 bg-[#111827] hover:border-white/20"}`}>
-                      <div className="text-2xl mb-2">{r.icon}</div>
-                      <div className={`text-sm font-bold ${role === r.key ? "text-[#f0b429]" : "text-white"}`}>{r.label}</div>
-                      <div className="text-xs text-gray-500 mt-0.5">{r.sub}</div>
-                    </button>
-                  ))}
+              {/* Role selector — only show on login */}
+              {mode === "login" && (
+                <div className="mb-6">
+                  <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-3">I am a</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { key: "landlord", icon: "🏢", label: "Landlord", sub: "I own/manage properties" },
+                      { key: "tenant", icon: "🏠", label: "Tenant", sub: "I rent a property" },
+                    ].map((r) => (
+                      <button key={r.key} onClick={() => setRole(r.key)}
+                        className={`p-4 rounded-2xl border-2 text-left transition-all ${role === r.key ? "border-[#f0b429] bg-[#f0b429]/10" : "border-white/10 bg-[#111827] hover:border-white/20"}`}>
+                        <div className="text-2xl mb-2">{r.icon}</div>
+                        <div className={`text-sm font-bold ${role === r.key ? "text-[#f0b429]" : "text-white"}`}>{r.label}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">{r.sub}</div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Signup notice */}
+              {mode === "signup" && (
+                <div className="bg-blue-400/10 border border-blue-400/20 rounded-xl p-4 mb-6">
+                  <div className="text-blue-400 font-bold text-sm mb-1">🏠 Tenant Sign Up</div>
+                  <div className="text-gray-400 text-xs">
+                    Fill in your details and your landlord will approve your account.
+                    Landlord accounts are created by admin only.
+                  </div>
+                </div>
+              )}
 
               {/* Form Fields */}
               <div className="space-y-4">
                 {mode === "signup" && (
-                  <div>
-                    <label className="text-xs text-gray-400 font-bold uppercase tracking-widest block mb-2">Full Name</label>
-                    <input name="name" value={form.name} onChange={handle}
-                      placeholder="e.g. James Mwangi"
-                      className="w-full bg-[#111827] border border-white/10 rounded-xl px-4 py-3.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#f0b429] transition" />
-                  </div>
+                  <>
+                    <div>
+                      <label className="text-xs text-gray-400 font-bold uppercase tracking-widest block mb-2">Full Name</label>
+                      <input name="name" value={form.name} onChange={handle}
+                        placeholder="e.g. James Mwangi"
+                        className="w-full bg-[#111827] border border-white/10 rounded-xl px-4 py-3.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#f0b429] transition" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 font-bold uppercase tracking-widest block mb-2">Phone Number</label>
+                      <div className="flex gap-2">
+                        <div className="bg-[#111827] border border-white/10 rounded-xl px-4 py-3.5 text-gray-400 text-sm flex items-center">🇰🇪 +254</div>
+                        <input name="phone" value={form.phone} onChange={handle} placeholder="712 345 678"
+                          className="flex-1 bg-[#111827] border border-white/10 rounded-xl px-4 py-3.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#f0b429] transition" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 font-bold uppercase tracking-widest block mb-2">
+                        Unit Number <span className="text-red-400">*</span>
+                      </label>
+                      <input name="unit" value={form.unit} onChange={handle}
+                        placeholder="e.g. A1, B2, 101"
+                        className="w-full bg-[#111827] border border-white/10 rounded-xl px-4 py-3.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#f0b429] transition" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 font-bold uppercase tracking-widest block mb-2">Property Name</label>
+                      <input name="property" value={form.property} onChange={handle}
+                        placeholder="e.g. Sunrise Apartments"
+                        className="w-full bg-[#111827] border border-white/10 rounded-xl px-4 py-3.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#f0b429] transition" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 font-bold uppercase tracking-widest block mb-2">Message to Landlord</label>
+                      <textarea name="message" value={form.message} onChange={handle}
+                        placeholder="Any additional information..."
+                        rows={2}
+                        className="w-full bg-[#111827] border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#f0b429] transition resize-none" />
+                    </div>
+                  </>
                 )}
 
                 <div>
@@ -356,47 +400,6 @@ export default function AuthPage() {
                     className="w-full bg-[#111827] border border-white/10 rounded-xl px-4 py-3.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#f0b429] transition" />
                 </div>
 
-                {mode === "signup" && (
-                  <>
-                    <div>
-                      <label className="text-xs text-gray-400 font-bold uppercase tracking-widest block mb-2">Phone Number</label>
-                      <div className="flex gap-2">
-                        <div className="bg-[#111827] border border-white/10 rounded-xl px-4 py-3.5 text-gray-400 text-sm flex items-center">🇰🇪 +254</div>
-                        <input name="phone" value={form.phone} onChange={handle} placeholder="712 345 678"
-                          className="flex-1 bg-[#111827] border border-white/10 rounded-xl px-4 py-3.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#f0b429] transition" />
-                      </div>
-                    </div>
-
-                    {/* Tenant specific fields */}
-                    {role === "tenant" && (
-                      <>
-                        <div>
-                          <label className="text-xs text-gray-400 font-bold uppercase tracking-widest block mb-2">
-                            Unit Number <span className="text-red-400">*</span>
-                          </label>
-                          <input name="unit" value={form.unit} onChange={handle}
-                            placeholder="e.g. A1, B2, 101"
-                            className="w-full bg-[#111827] border border-white/10 rounded-xl px-4 py-3.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#f0b429] transition" />
-                        </div>
-                        <div>
-                          <label className="text-xs text-gray-400 font-bold uppercase tracking-widest block mb-2">Property Name</label>
-                          <input name="property" value={form.property} onChange={handle}
-                            placeholder="e.g. Sunrise Apartments"
-                            className="w-full bg-[#111827] border border-white/10 rounded-xl px-4 py-3.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#f0b429] transition" />
-                        </div>
-                        <div>
-                          <label className="text-xs text-gray-400 font-bold uppercase tracking-widest block mb-2">Message to Landlord (Optional)</label>
-                          <textarea name="message" value={form.message} onChange={handle}
-                            placeholder="Any additional information..."
-                            rows={2}
-                            className="w-full bg-[#111827] border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#f0b429] transition resize-none" />
-                        </div>
-                      </>
-                    )}
-                  </>
-                )}
-
-                {/* Password */}
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <label className="text-xs text-gray-400 font-bold uppercase tracking-widest">Password</label>
@@ -431,14 +434,12 @@ export default function AuthPage() {
                   )}
                 </div>
 
-                {/* Error/Success */}
                 {error && (
                   <div className="bg-red-400/10 text-red-400 border border-red-400/20 rounded-xl p-3 text-sm font-bold">
                     {error}
                   </div>
                 )}
 
-                {/* Submit */}
                 <button onClick={submitForm} disabled={loading}
                   className="w-full bg-[#f0b429] text-black font-extrabold py-4 rounded-xl text-sm hover:opacity-90 transition disabled:opacity-70 flex items-center justify-center gap-2">
                   {loading ? (
@@ -451,11 +452,11 @@ export default function AuthPage() {
                     </>
                   ) : mode === "login"
                     ? `Log In as ${role === "landlord" ? "Landlord 🏢" : "Tenant 🏠"} →`
-                    : "Create Account →"
+                    : "Create Tenant Account →"
                   }
                 </button>
 
-                {/* Google */}
+                {/* Google Login */}
                 <div className="flex items-center gap-4">
                   <div className="flex-1 h-px bg-white/10" />
                   <span className="text-gray-600 text-xs">or</span>
@@ -479,25 +480,30 @@ export default function AuthPage() {
                 </button>
               </div>
 
-              <p className="text-center text-gray-500 text-sm mt-6">
-                {mode === "login" ? "Don't have an account? " : "Already have an account? "}
-                <button onClick={() => { setMode(mode === "login" ? "signup" : "login"); setError(""); }}
-                  className="text-[#f0b429] font-bold hover:underline">
-                  {mode === "login" ? "Sign up free" : "Log in instead"}
-                </button>
-              </p>
+              {mode === "login" && (
+                <p className="text-center text-gray-500 text-xs mt-6">
+                  Are you a tenant?{" "}
+                  <button onClick={() => { setMode("signup"); setRole("tenant"); setError(""); }}
+                    className="text-[#f0b429] font-bold hover:underline">
+                    Create tenant account
+                  </button>
+                </p>
+              )}
             </>
           )}
 
-          {/* STEP 2 — OTP VERIFICATION */}
+          {/* STEP 2 — OTP */}
           {step === 2 && (
             <div className="text-center">
               <div className="text-6xl mb-4">📧</div>
-              <h1 className="text-2xl font-extrabold mb-2">Check Your Email!</h1>
-              <p className="text-gray-400 text-sm mb-2">
-                We sent a 6-digit verification code to:
+              <h1 className="text-2xl font-extrabold mb-2">Verify Your Email</h1>
+              <p className="text-gray-400 text-sm mb-2">We sent a verification code to:</p>
+              <p className="text-[#f0b429] font-extrabold mb-2">
+                {form.email || localStorage.getItem('rentflow_verify_email')}
               </p>
-              <p className="text-[#f0b429] font-extrabold mb-6">{form.email || localStorage.getItem('rentflow_verify_email')}</p>
+              <p className="text-gray-500 text-xs mb-6">
+                Check your inbox and spam folder
+              </p>
 
               {success && (
                 <div className="bg-green-400/10 text-green-400 border border-green-400/20 rounded-xl p-3 text-sm font-bold mb-4">
@@ -506,18 +512,14 @@ export default function AuthPage() {
               )}
 
               {/* OTP Boxes */}
-              <div className="flex gap-2 sm:gap-3 justify-center mb-6">
+              <div className="flex gap-1.5 sm:gap-2 justify-center mb-6">
                 {otp.map((digit, i) => (
-                  <input
-                    key={i}
-                    id={`otp-${i}`}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
+                  <input key={i} id={`otp-${i}`}
+                    type="text" inputMode="numeric" maxLength={1}
                     value={digit}
                     onChange={e => handleOtpChange(i, e.target.value)}
                     onKeyDown={e => handleOtpKeyDown(i, e)}
-                    className={`w-11 h-14 sm:w-12 sm:h-16 text-center text-xl font-extrabold rounded-xl border-2 bg-[#111827] text-white transition-all outline-none
+                    className={`w-9 h-12 sm:w-11 sm:h-14 text-center text-lg font-extrabold rounded-xl border-2 bg-[#111827] text-white transition-all outline-none
                       ${digit ? "border-[#f0b429]" : "border-white/10"} focus:border-[#f0b429]`}
                   />
                 ))}
@@ -529,7 +531,8 @@ export default function AuthPage() {
                 </div>
               )}
 
-              <button onClick={verifyOtp} disabled={loading || otp.join("").length !== 6}
+              <button onClick={verifyOtp}
+                disabled={loading || otp.join("").replace(/\s/g,'').length < 6}
                 className="w-full bg-[#f0b429] text-black font-extrabold py-4 rounded-xl text-sm hover:opacity-90 transition disabled:opacity-50 mb-4 flex items-center justify-center gap-2">
                 {loading ? (
                   <>
@@ -539,19 +542,21 @@ export default function AuthPage() {
                     </svg>
                     Verifying...
                   </>
-                ) : "Verify Code →"}
+                ) : "Verify & Continue →"}
               </button>
 
               <div className="flex justify-between text-sm">
-                <button onClick={() => { setStep(1); setOtp(["","","","","",""]); setError(""); }}
-                  className="text-gray-500 hover:text-white transition">
-                  ← Back
-                </button>
+                <button onClick={() => { setStep(1); setOtp(["","","","","","",""]); setError(""); }}
+                  className="text-gray-500 hover:text-white transition">← Back</button>
                 <button onClick={resendOtp} disabled={loading}
                   className="text-[#f0b429] font-bold hover:underline disabled:opacity-50">
                   Resend Code
                 </button>
               </div>
+
+              <p className="text-gray-600 text-xs mt-4">
+                🔒 For your security, a new code is required every time you log in
+              </p>
             </div>
           )}
         </div>
