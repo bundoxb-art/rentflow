@@ -128,19 +128,9 @@ export default function AuthPage() {
         // Store for OTP verification
         localStorage.setItem('rentflow_verify_email', form.email);
         localStorage.setItem('rentflow_verify_password', form.password);
+        localStorage.setItem('rentflow_verify_role', role);
         localStorage.setItem('rentflow_verify_mode', 'login');
-
-        // Detect role from profile
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('email', form.email)
-          .single();
-
-        localStorage.setItem('rentflow_verify_role', profile?.role || 'tenant');
-
-        setStep(2);
-        setSuccess(`📧 Verification code sent to ${form.email}`);
+        window.location.href = '/verify-otp';
       }
       setLoading(false);
     }

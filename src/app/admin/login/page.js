@@ -65,7 +65,11 @@ export default function AdminLogin() {
 
       localStorage.setItem('admin_verify_email', form.email);
       localStorage.setItem('admin_verify_password', form.password);
-      setStep(2);
+      localStorage.setItem('rentflow_verify_email', form.email);
+      localStorage.setItem('rentflow_verify_password', form.password);
+      localStorage.setItem('rentflow_verify_role', 'admin');
+      localStorage.setItem('rentflow_verify_mode', 'login');
+      window.location.href = '/verify-otp';
     }
     setLoading(false);
   };
