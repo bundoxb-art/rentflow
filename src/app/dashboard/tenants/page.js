@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 
 const fmt = (n) => "KSh " + (n || 0).toLocaleString();
+const generateReceiptId = () => `RF-${Date.now()}`;
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const DAYS = ["S","M","T","W","T","F","S"];
@@ -24,11 +25,7 @@ export default function TenantPortal() {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
-  useEffect(() => {
-    checkSession();
-  }, []);
-
-  const checkSession = async () => {
+  async function checkSession() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { window.location.href = '/tenant/login'; return; }
 
@@ -130,7 +127,8 @@ export default function TenantPortal() {
   };
 
   const downloadReceipt = (payment) => {
-    const receiptHtml = `
+    const receiptId = generateReceiptId();
+  const receiptHtml = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -153,7 +151,7 @@ export default function TenantPortal() {
   <div class="header">
     <div class="logo">RentFlow</div>
     <div class="receipt-no">OFFICIAL PAYMENT RECEIPT</div>
-    <div class="receipt-no">Receipt #: RF-${Date.now()}</div>
+    <div class="receipt-no">Receipt #: ${receiptId}</div>
   </div>
   
   <div class="amount">${fmt(payment.amount)}</div>
@@ -218,13 +216,12 @@ export default function TenantPortal() {
   const month = currentDate.getMonth();
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
   const dueDay = 1;
 
   const isPaidMonth = (y, m) => {
-    return payments.some(p => {
-      const monthName = new Date(y, m, 1).toLocaleString('default', { month: 'long', year: 'numeric' });
-      return p.month === monthName;
-    });
+    const monthName = new Date(y, m, 1).toLocaleDateString('en-KE', { month: 'long', year: 'numeric' });
+    return payments.some(p => p.month === monthName);
   };
 
   if (loading) {
@@ -489,7 +486,7 @@ export default function TenantPortal() {
               <div className="grid grid-cols-7 gap-1">
                 {Array.from({ length: firstDay }, (_, i) => (
                   <div key={`prev-${i}`} className="aspect-square flex items-center justify-center text-xs text-gray-700">
-                    {new Date(year, month, 0).getDate() - firstDay + i + 1}
+                    {daysInPrevMonth - firstDay + i + 1}
                   </div>
                 ))}
                 {Array.from({ length: daysInMonth }, (_, i) => {
@@ -524,6 +521,11 @@ export default function TenantPortal() {
                     </div>
                   );
                 })}
+                {Array.from({ length: (7 - ((firstDay + daysInMonth) % 7)) % 7 }, (_, i) => (
+                  <div key={`next-${i}`} className="aspect-square flex items-center justify-center text-xs text-gray-700">
+                    {i + 1}
+                  </div>
+                ))}
               </div>
 
               {/* Legend */}
