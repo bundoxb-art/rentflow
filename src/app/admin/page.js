@@ -62,6 +62,9 @@ function TenantRequests() {
 
 export default function AdminPanel() {
   const [profiles, setProfiles] = useState([]);
+  const [allTenants, setAllTenants] = useState([]);
+  const [allPayments, setAllPayments] = useState([]);
+  const [totalRevenue, setTotalRevenue] = useState(0);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
   const [user, setUser] = useState(null);
@@ -86,6 +89,7 @@ export default function AdminPanel() {
     }
     setUser(user);
     fetchProfiles();
+    fetchAllData();
   };
 
   const fetchProfiles = async () => {
@@ -96,6 +100,26 @@ export default function AdminPanel() {
       .order("created_at", { ascending: false });
     setProfiles(data || []);
     setLoading(false);
+  };
+
+  // Admin fetches ALL data - no landlord_id filter
+  const fetchAllData = async () => {
+    const { data: allTenants } = await supabase
+      .from("tenants")
+      .select("*, landlord:landlord_id(email)")
+      .order("created_at", { ascending: false });
+
+    const { data: allPayments } = await supabase
+      .from("payments")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    // Total money across ALL landlords
+    const totalMoney = allPayments?.reduce((s, p) => s + (p.amount || 0), 0) || 0;
+    
+    setAllTenants(allTenants || []);
+    setAllPayments(allPayments || []);
+    setTotalRevenue(totalMoney);
   };
 
   const approveUser = async (id, name) => {

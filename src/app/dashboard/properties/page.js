@@ -17,8 +17,17 @@ export default function Properties() {
 
   const fetchProperties = async () => {
     setLoading(true);
-    const { data: props } = await supabase.from("properties").select("*");
-    const { data: tenants } = await supabase.from("tenants").select("*");
+    
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      window.location.href = '/landlord/login';
+      return;
+    }
+    
+    const { data: props } = await supabase.from("properties").select("*").eq("landlord_id", user.id);
+    const { data: tenants } = await supabase.from("tenants").select("*").eq("landlord_id", user.id);
     const enriched = (props || []).map(p => ({
       ...p,
       tenants: (tenants || []).filter(t => t.property_id === p.id),
@@ -31,13 +40,16 @@ export default function Properties() {
 
   const addProperty = async () => {
     if (!newP.name) return;
+    const { data: { user } } = await supabase.auth.getUser();
+
     const { error } = await supabase.from("properties").insert({
       name: newP.name,
       address: newP.address,
+      landlord_id: user.id,
     });
     if (error) { showToast("Error: " + error.message); return; }
     setShowAdd(false);
-    setNewP({ name: "", address: "", units: "" });
+    setNewP({ name: "", address: "" });
     showToast("✓ Property added!");
     fetchProperties();
   };

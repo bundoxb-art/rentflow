@@ -25,6 +25,17 @@ export async function POST(request) {
 
       console.log('Payment successful:', { amount, mpesaReceiptNumber, phone, tenantId })
 
+      // Find tenant and their landlord
+      const { data: tenant, error: tenantFetchError } = await supabase
+        .from('tenants')
+        .select('*, landlord_id')
+        .eq('id', tenantId)
+        .single();
+
+      if (tenantFetchError) {
+        console.error('Error fetching tenant:', tenantFetchError)
+      }
+
       // Update tenant status to paid in Supabase
       const { error: tenantError } = await supabase
         .from('tenants')
@@ -35,11 +46,12 @@ export async function POST(request) {
         console.error('Error updating tenant:', tenantError)
       }
 
-      // Record payment in payments table
+      // Record payment in payments table (include landlord_id)
       const { error: paymentError } = await supabase
         .from('payments')
         .insert({
           tenant_id: tenantId,
+          landlord_id: tenant?.landlord_id || null,
           amount: amount,
           month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
           method: 'mpesa',

@@ -69,8 +69,31 @@ export default function Dashboard() {
 
   const fetchData = async () => {
     setLoading(true);
-    const { data: t } = await supabase.from("tenants").select("*");
-    const { data: p } = await supabase.from("payments").select("*").order("created_at", { ascending: false });
+    
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      window.location.href = '/landlord/login';
+      return;
+    }
+
+    // Fetch ONLY this landlord's tenants
+    const { data: t, error: tError } = await supabase
+      .from("tenants")
+      .select("*")
+      .eq("landlord_id", user.id)
+      .order("created_at", { ascending: false });
+
+    // Fetch ONLY this landlord's payments
+    const { data: p } = await supabase
+      .from("payments")
+      .select("*")
+      .eq("landlord_id", user.id)
+      .order("created_at", { ascending: false });
+
+    console.log("Fetched tenants for landlord:", user.id, t);
+
     setTenants(t || []);
     setPayments(p || []);
     setLoading(false);

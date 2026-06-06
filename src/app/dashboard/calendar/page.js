@@ -46,8 +46,25 @@ export default function Calendar() {
 
   const fetchData = async () => {
     setLoading(true);
-    const { data: t } = await supabase.from("tenants").select("*");
-    const { data: p } = await supabase.from("payments").select("*");
+    
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      window.location.href = '/landlord/login';
+      return;
+    }
+    
+    // Fetch ONLY this landlord's tenants and payments
+    const { data: t } = await supabase
+      .from("tenants")
+      .select("*")
+      .eq("landlord_id", user.id);
+    const { data: p } = await supabase
+      .from("payments")
+      .select("*")
+      .eq("landlord_id", user.id);
+    
     setTenants(t || []);
     setPayments(p || []);
     setLoading(false);
