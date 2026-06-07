@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 const PAYMENTS = [
   { id: 1, month: "May 2025", amount: 18000, status: "paid", date: "May 1, 2025", method: "M-Pesa", ref: "QK7X2M9P" },
@@ -16,10 +17,121 @@ export default function TenantPortal() {
   const [payStep, setPayStep] = useState(1);
   const [phone, setPhone] = useState("0712 345 678");
   const [toast, setToast] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const [tenant, setTenant] = useState(null);
+  const [payments, setPayments] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
+
+  useEffect(() => {
+    checkSession();
+  }, []);
 
   const showToast = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(""), 3000);
+  };
+
+  const checkSession = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { window.location.href = '/tenant/login'; return; }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    setUser(user);
+
+    // Get tenant profile
+    const { data: tenantProfile } = await supabase
+      .from('tenant_profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (!tenantProfile) {
+      // Try by email
+      const { data: profileByEmail } = await supabase
+        .from('tenant_profiles')
+        .select('*')
+        .eq('email', user.email)
+        .single();
+
+      if (!profileByEmail || profileByEmail.status === 'pending') {
+        window.location.href = '/tenant-pending';
+        return;
+      }
+    }
+
+    if (tenantProfile?.status === 'pending') {
+      window.location.href = '/tenant-pending';
+      return;
+    }
+
+    // Check deposit status
+    const { data: deposit } = await supabase
+      .from('deposits')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('status', 'confirmed')
+      .single();
+
+    if (!deposit) {
+      window.location.href = '/tenant/deposit';
+      return;
+    }
+
+    // Get THIS tenant's data specifically by user_id
+    const { data: tenantData } = await supabase
+      .from('tenants')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+
+    // If not found by user_id, try by email
+    if (!tenantData) {
+      const { data: tenantByEmail } = await supabase
+        .from('tenants')
+        .select('*')
+        .eq('email', user.email)
+        .single();
+
+      setTenant(tenantByEmail);
+
+      if (tenantByEmail) {
+        // Link tenant to user
+        await supabase.from('tenants').update({ user_id: user.id }).eq('id', tenantByEmail.id);
+
+        const { data: pays } = await supabase
+          .from('payments')
+          .select('*')
+          .eq('tenant_id', tenantByEmail.id)
+          .order('created_at', { ascending: false });
+        setPayments(pays || []);
+
+        const { data: ann } = await supabase
+          .from('announcements')
+          .select('*')
+          .or(`type.eq.all,tenant_id.eq.${tenantByEmail.id}`)
+          .order('created_at', { ascending: false });
+        setAnnouncements(ann || []);
+      }
+    } else {
+      setTenant(tenantData);
+
+      const { data: pays } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('tenant_id', tenantData.id)
+        .order('created_at', { ascending: false });
+      setPayments(pays || []);
+
+      const { data: ann } = await supabase
+        .from('announcements')
+        .select('*')
+        .or(`type.eq.all,tenant_id.eq.${tenantData.id}`)
+        .order('created_at', { ascending: false });
+      setAnnouncements(ann || []);
+    }
+
+    setLoading(false);
   };
 
   const handlePay = () => {

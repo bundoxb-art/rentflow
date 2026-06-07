@@ -1,100 +1,76 @@
 import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
-async function getAccessToken() {
-  try {
-    const consumerKey = process.env.MPESA_CONSUMER_KEY
-    const consumerSecret = process.env.MPESA_CONSUMER_SECRET
-    
-    if (!consumerKey || !consumerSecret) {
-      throw new Error('M-Pesa credentials not configured')
-    }
+const supabase = createClient(
+  'https://vrelkjytegukqxgustmj.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZyZWxranl0ZWd1a3F4Z3VzdG1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0NTkxNzIsImV4cCI6MjA5NDAzNTE3Mn0.O1HvYi0HuUDhczCoDRssWCC6gx7tbMmhkG3NG8H0zyw'
+)
 
-    const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64')
+async function getSettings() {
+  const { data } = await supabase
+    .from('system_settings')
+    .select('key, value');
 
-    const response = await fetch(
-      'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials',
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Basic ${auth}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    )
+  const settings = {};
+  (data || []).forEach(s => { settings[s.key] = s.value; });
+  return settings;
+}
 
-    const text = await response.text()
-    console.log('Access token response:', text)
+async function getAccessToken(consumerKey, consumerSecret, environment) {
+  const baseUrl = environment === 'production'
+    ? 'https://api.safaricom.co.ke'
+    : 'https://sandbox.safaricom.co.ke';
 
-    if (!text) throw new Error('Empty response from Safaricom')
+  const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
 
-    const data = JSON.parse(text)
-    
-    if (!data.access_token) {
-      throw new Error('No access token: ' + JSON.stringify(data))
-    }
+  const response = await fetch(
+    `${baseUrl}/oauth/v1/generate?grant_type=client_credentials`,
+    { headers: { 'Authorization': `Basic ${auth}` } }
+  );
 
-    return data.access_token
-  } catch (error) {
-    console.error('getAccessToken error:', error.message)
-    throw error
-  }
+  const text = await response.text();
+  if (!text) throw new Error('Empty token response');
+  const data = JSON.parse(text);
+  return data.access_token;
 }
 
 export async function POST(request) {
   try {
-    const body = await request.json()
-    const { phone, amount, tenantId, tenantName } = body
+    const { phone, amount, tenantId, tenantName, isDeposit } = await request.json();
 
-    console.log('STK Push request:', { phone, amount, tenantId, tenantName })
+    // Get settings from database
+    const settings = await getSettings();
 
-    if (!phone || !amount) {
-      return NextResponse.json({
-        success: false,
-        message: 'Phone and amount are required'
-      })
-    }
+    const consumerKey = process.env.MPESA_CONSUMER_KEY;
+    const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
+    const shortCode = settings.mpesa_shortcode || process.env.MPESA_SHORTCODE || '174379';
+    const passkey = settings.mpesa_passkey || process.env.MPESA_PASSKEY;
+    const environment = settings.mpesa_environment || 'sandbox';
 
-    // Format phone number
-    let formattedPhone = phone.toString().replace(/\s/g, '').replace('+', '').replace('-', '')
-    if (formattedPhone.startsWith('0')) {
-      formattedPhone = '254' + formattedPhone.slice(1)
-    }
-    if (!formattedPhone.startsWith('254')) {
-      formattedPhone = '254' + formattedPhone
-    }
+    // Format phone
+    let formattedPhone = phone.toString().replace(/\s/g, '').replace('+', '');
+    if (formattedPhone.startsWith('0')) formattedPhone = '254' + formattedPhone.slice(1);
+    if (!formattedPhone.startsWith('254')) formattedPhone = '254' + formattedPhone;
 
-    console.log('Formatted phone:', formattedPhone)
+    const accessToken = await getAccessToken(consumerKey, consumerSecret, environment);
 
-    // Get access token
-    let accessToken
-    try {
-      accessToken = await getAccessToken()
-      console.log('Got access token successfully')
-    } catch (tokenError) {
-      return NextResponse.json({
-        success: false,
-        message: 'Failed to get M-Pesa access token: ' + tokenError.message
-      })
-    }
-
-    const shortCode = process.env.MPESA_SHORTCODE || '174379'
-    const passkey = process.env.MPESA_PASSKEY || 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'
-    
-    const now = new Date()
+    const now = new Date();
     const timestamp = now.getFullYear().toString() +
       String(now.getMonth() + 1).padStart(2, '0') +
       String(now.getDate()).padStart(2, '0') +
       String(now.getHours()).padStart(2, '0') +
       String(now.getMinutes()).padStart(2, '0') +
-      String(now.getSeconds()).padStart(2, '0')
+      String(now.getSeconds()).padStart(2, '0');
 
-    const password = Buffer.from(`${shortCode}${passkey}${timestamp}`).toString('base64')
-    const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/mpesa/callback`
+    const password = Buffer.from(`${shortCode}${passkey}${timestamp}`).toString('base64');
+    const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/mpesa/callback`;
 
-    console.log('STK Push params:', { shortCode, timestamp, callbackUrl, formattedPhone, amount })
+    const baseUrl = environment === 'production'
+      ? 'https://api.safaricom.co.ke'
+      : 'https://sandbox.safaricom.co.ke';
 
     const stkResponse = await fetch(
-      'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest',
+      `${baseUrl}/mpesa/stkpush/v1/processrequest`,
       {
         method: 'POST',
         headers: {
@@ -111,53 +87,32 @@ export async function POST(request) {
           PartyB: shortCode,
           PhoneNumber: formattedPhone,
           CallBackURL: callbackUrl,
-          AccountReference: tenantId || 'RentFlow',
-          TransactionDesc: `Rent payment for ${tenantName || 'tenant'}`,
+          AccountReference: isDeposit ? 'DEPOSIT' : tenantId,
+          TransactionDesc: isDeposit ? `Activation Deposit` : `Rent - ${tenantName}`,
         }),
       }
-    )
+    );
 
-    const stkText = await stkResponse.text()
-    console.log('STK Push raw response:', stkText)
+    const stkText = await stkResponse.text();
+    if (!stkText) return NextResponse.json({ success: false, message: 'No response from M-Pesa' });
 
-    if (!stkText) {
-      return NextResponse.json({
-        success: false,
-        message: 'Empty response from M-Pesa STK Push'
-      })
-    }
-
-    let stkData
-    try {
-      stkData = JSON.parse(stkText)
-    } catch (parseError) {
-      return NextResponse.json({
-        success: false,
-        message: 'Invalid response from M-Pesa: ' + stkText
-      })
-    }
-
-    console.log('STK Push parsed response:', stkData)
+    const stkData = JSON.parse(stkText);
 
     if (stkData.ResponseCode === '0') {
       return NextResponse.json({
         success: true,
-        message: 'M-Pesa prompt sent! Check your phone and enter your PIN.',
+        message: 'M-Pesa prompt sent! Enter your PIN.',
         checkoutRequestId: stkData.CheckoutRequestID,
-      })
+      });
     } else {
       return NextResponse.json({
         success: false,
         message: stkData.errorMessage || stkData.ResponseDescription || 'STK Push failed',
-        details: stkData
-      })
+      });
     }
 
   } catch (error) {
-    console.error('STK Push error:', error)
-    return NextResponse.json({
-      success: false,
-      message: 'Server error: ' + error.message
-    }, { status: 500 })
+    console.error('STK Push error:', error);
+    return NextResponse.json({ success: false, message: error.message });
   }
 }
