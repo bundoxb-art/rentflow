@@ -100,8 +100,35 @@ export default function ApartmentAdminDashboard() {
 
   const approveTenant = async (req) => {
     await supabase.from('tenant_requests').update({ status: 'approved' }).eq('id', req.id);
-    await supabase.from('tenant_profiles').update({ status: 'approved' }).eq('email', req.email);
-    showToast(`✅ ${req.name} approved!`);
+    await supabase.from('tenant_profiles')
+      .update({ 
+        status: 'approved',
+        apartment_id: admin.apartment_id,
+        approved_at: new Date().toISOString()
+      })
+      .eq('email', req.email);
+
+    // Create the tenant rent record automatically
+    const { data: existingTenant } = await supabase
+      .from('tenants')
+      .select('id')
+      .eq('email', req.email)
+      .single();
+
+    if (!existingTenant) {
+      await supabase.from('tenants').insert({
+        name: req.name,
+        email: req.email,
+        phone: req.phone,
+        unit: req.unit,
+        status: 'unpaid',
+        apartment_id: admin.apartment_id,
+        landlord_id: null,
+        rent_amount: 0,
+      });
+    }
+
+    showToast(`✅ ${req.name} approved! They can now access their portal.`);
     fetchAll(admin.apartment_id, admin.id);
   };
 
