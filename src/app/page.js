@@ -172,7 +172,7 @@ export default function Home() {
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
           <div className="text-xl font-bold text-[#f0b429]">Rent<span className="text-white">Flow</span></div>
           <p className="text-gray-500 text-xs sm:text-sm text-center">
-            © 2026 RentFlow. Built for landlords across Kenya & East Africa. Crafted by BundoxxBriaN
+            © 2026 RentFlow. Built for landlords across Kenya & East Africa.
           </p>
           <div className="flex gap-4 sm:gap-6 text-xs sm:text-sm text-gray-500">
             <a href="#" className="hover:text-white transition">Privacy</a>
@@ -180,13 +180,8 @@ export default function Home() {
             <a href="#" className="hover:text-white transition">Contact</a>
             <span className="text-gray-700">|</span>
             <Link href="/login" className="hover:text-white transition">Login</Link>
-            {/* Subtle admin/developer links - low contrast */}
-            <Link href="/admin/login" className="text-gray-700 hover:text-gray-500 transition text-xs">
-              Admin
-            </Link>
-            <Link href="/developer/login" className="text-gray-700 hover:text-gray-500 transition text-xs opacity-80">
-              Dev
-            </Link>
+            <span className="text-gray-700">|</span>
+            <Link href="/portal" className="text-gray-600 hover:text-gray-400 transition">Staff Login</Link>
           </div>
         </div>
       </footer>
