@@ -14,6 +14,8 @@ export default function ApartmentAdminDashboard() {
   const [toast, setToast] = useState("");
   const [showCreateLandlord, setShowCreateLandlord] = useState(false);
   const [newLandlord, setNewLandlord] = useState({ name: "", email: "", phone: "", password: "" });
+  const [rentAmount, setRentAmount] = useState(0);
+  const [editingRent, setEditingRent] = useState(false);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
   const fmt = (n) => "KSh " + (n || 0).toLocaleString();
@@ -34,6 +36,7 @@ export default function ApartmentAdminDashboard() {
 
     setAdmin(adminData);
     setApartment(adminData.apartments);
+    setRentAmount(adminData.apartments?.rent_amount || 0);
     fetchAll(adminData.apartment_id, adminData.id);
   };
 
@@ -108,7 +111,16 @@ export default function ApartmentAdminDashboard() {
       })
       .eq('email', req.email);
 
-    // Create the tenant rent record automatically
+    // Get current apartment rent amount
+    const { data: apt } = await supabase
+      .from('apartments')
+      .select('rent_amount')
+      .eq('id', admin.apartment_id)
+      .single();
+
+    const approvalRentAmount = apt?.rent_amount || 0;
+
+    // Create the tenant rent record with the apartment's fixed rent
     const { data: existingTenant } = await supabase
       .from('tenants')
       .select('id')
@@ -123,12 +135,31 @@ export default function ApartmentAdminDashboard() {
         unit: req.unit,
         status: 'unpaid',
         apartment_id: admin.apartment_id,
-        landlord_id: null,
-        rent_amount: 0,
+        rent_amount: approvalRentAmount,
       });
     }
 
-    showToast(`✅ ${req.name} approved! They can now access their portal.`);
+    if (approvalRentAmount === 0) {
+      showToast(`⚠️ ${req.name} approved! Set the rent amount above so they can pay.`);
+    } else {
+      showToast(`✅ ${req.name} approved with rent KSh ${approvalRentAmount.toLocaleString()}!`);
+    }
+    fetchAll(admin.apartment_id, admin.id);
+  };
+
+  const updateRentAmount = async (newAmount) => {
+    const amount = parseInt(newAmount);
+    if (!amount || amount <= 0) { showToast("Enter a valid amount"); return; }
+
+    // Update apartment rent amount
+    await supabase.from('apartments').update({ rent_amount: amount }).eq('id', admin.apartment_id);
+
+    // Apply to ALL existing tenants in this apartment
+    await supabase.from('tenants').update({ rent_amount: amount }).eq('apartment_id', admin.apartment_id);
+
+    setRentAmount(amount);
+    setEditingRent(false);
+    showToast(`✅ Rent set to KSh ${amount.toLocaleString()} for all tenants!`);
     fetchAll(admin.apartment_id, admin.id);
   };
 
@@ -193,6 +224,58 @@ export default function ApartmentAdminDashboard() {
               <div className="text-2xl font-extrabold mb-1">{apartment?.name} 🏛️</div>
               <div className="text-gray-400 text-sm">{apartment?.address}, {apartment?.city}</div>
             </div>
+
+            {/* RENT AMOUNT SETTING */}
+            <div className="bg-[#111827] border border-[#f0b429]/20 rounded-2xl p-5">
+              <div className="flex justify-between items-center">
+                <div>
+                  <div className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Monthly Rent (All Tenants)</div>
+                  {editingRent ? (
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-gray-400 text-sm">KSh</span>
+                      <input
+                        type="number"
+                        id="rent-input"
+                        defaultValue={rentAmount}
+                        autoFocus
+                        className="bg-[#0d1117] border border-[#f0b429] rounded-xl px-3 py-2 text-white text-lg font-extrabold w-40 focus:outline-none"
+                      />
+                      <button onClick={() => updateRentAmount(document.getElementById('rent-input').value)}
+                        className="bg-green-400 text-black font-bold px-4 py-2 rounded-xl text-sm">
+                        Save
+                      </button>
+                      <button onClick={() => setEditingRent(false)}
+                        className="bg-white/10 text-gray-400 font-bold px-3 py-2 rounded-xl text-sm">
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-2xl font-extrabold text-[#f0b429]">
+                      {fmt(rentAmount)}
+                      {rentAmount === 0 && <span className="text-sm text-red-400 ml-2">⚠️ Not set</span>}
+                    </div>
+                  )}
+                </div>
+                {!editingRent && (
+                  <button onClick={() => setEditingRent(true)}
+                    className="text-xs px-4 py-2 rounded-xl bg-[#f0b429]/10 text-[#f0b429] border border-[#f0b429]/20 font-bold hover:bg-[#f0b429]/20 transition">
+                    ✏️ {rentAmount === 0 ? "Set Rent" : "Edit"}
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                This amount applies to ALL tenants in {apartment?.name}. New tenants are automatically assigned this rent.
+              </p>
+            </div>
+
+            {rentAmount === 0 && (
+              <div className="bg-red-400/10 border border-red-400/20 rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-red-400">⚠️ Rent Amount Not Set</div>
+                  <div className="text-gray-400 text-sm">Tenants cannot pay until you set the monthly rent amount above.</div>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
