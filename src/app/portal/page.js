@@ -73,6 +73,18 @@ export default function PortalSelector() {
             className="block text-center text-gray-500 text-sm hover:text-white transition py-2">
             ← Back to main site
           </Link>
+
+          {/* Manager Registration */}
+          <div className="bg-[#111827] border border-[#f0b429]/10 rounded-2xl p-4 text-center">
+            <p className="text-gray-500 text-sm mb-3">New to RentFlow Pro?</p>
+            <Link href="/manage/register"
+              className="inline-block bg-[#f0b429] text-black font-extrabold px-6 py-2.5 rounded-xl text-sm hover:opacity-90 transition">
+              Register as Manager →
+            </Link>
+            <p className="text-gray-600 text-xs mt-2">
+              Create your company account and manage all your properties
+            </p>
+          </div>
         </div>
 
         <p className="text-center text-gray-700 text-xs mt-8">
