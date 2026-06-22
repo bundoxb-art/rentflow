@@ -4,7 +4,20 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseAdmin = createClient(
   'https://vrelkjytegukqxgustmj.supabase.co',
   process.env.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { autoRefreshToken: false, persistSession: false } }
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    },
+    db: {
+      schema: 'public'
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+      }
+    }
+  }
 )
 
 export async function POST(request) {
