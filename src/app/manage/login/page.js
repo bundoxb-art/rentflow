@@ -50,41 +50,56 @@ export default function ManagerLogin() {
 
     // Verify credentials
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: form.email,
+      email: form.email.trim().toLowerCase(),
       password: form.password,
     });
 
-    if (error) { setError(error.message); setLoading(false); return; }
+    if (error) {
+      setError(error.message);
+      setLoading(false); return;
+    }
 
     if (data?.session) {
-      // Check if manager exists
-      const { data: manager } = await supabase
+      // Check if manager record exists
+      const { data: manager, error: mgrError } = await supabase
         .from('managers')
         .select('*')
-        .eq('email', form.email)
-        .single();
+        .eq('email', form.email.trim().toLowerCase())
+        .maybeSingle();
+
+      if (mgrError) {
+        console.error('Manager check error:', mgrError);
+      }
 
       if (!manager) {
+        // Check by user ID as fallback
+        const { data: mgrById } = await supabase
+          .from('managers')
+          .select('*')
+          .eq('id', data.user.id)
+          .maybeSingle();
+
+        if (!mgrById) {
+          await supabase.auth.signOut();
+          setError("No manager account found. Please register first or contact support.");
+          setLoading(false); return;
+        }
+      }
+
+      if (manager?.status === 'suspended') {
         await supabase.auth.signOut();
-        setError("No manager account found. Contact system administrator.");
+        setError("Your account has been suspended. Contact support.");
         setLoading(false); return;
       }
 
-      if (manager.status === 'suspended') {
-        await supabase.auth.signOut();
-        setError("Your account has been suspended.");
-        setLoading(false); return;
-      }
-
-      // Sign out and require OTP
+      // Sign out and send OTP
       await supabase.auth.signOut();
-
       await supabase.auth.signInWithOtp({
-        email: form.email,
+        email: form.email.trim().toLowerCase(),
         options: { shouldCreateUser: false }
       });
 
-      localStorage.setItem('mgr_email', form.email);
+      localStorage.setItem('mgr_email', form.email.trim().toLowerCase());
       localStorage.setItem('mgr_password', form.password);
       setStep(2);
     }
