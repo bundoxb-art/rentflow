@@ -17,27 +17,13 @@ function VerifyOTPContent() {
   const inputs = useRef([]);
 
   useEffect(() => {
-    // Get from URL params first, then localStorage
-    const urlEmail = searchParams.get('email');
-    const urlRole = searchParams.get('role');
-    const urlMode = searchParams.get('mode');
-
-    const storedEmail = localStorage.getItem('rentflow_verify_email');
-    const storedRole = localStorage.getItem('rentflow_verify_role');
-    const storedMode = localStorage.getItem('rentflow_verify_mode');
-
-    setEmail(urlEmail || storedEmail || "");
-    setRole(urlRole || storedRole || "tenant");
-    setMode(urlMode || storedMode || "login");
-
-    if (!urlEmail && !storedEmail) {
-      window.location.href = '/login';
+    if (!email) {
+      window.location.assign('/login');
       return;
     }
 
-    // Focus first input
     setTimeout(() => inputs.current[0]?.focus(), 100);
-  }, []);
+  }, [email]);
 
   useEffect(() => {
     if (countdown > 0) {

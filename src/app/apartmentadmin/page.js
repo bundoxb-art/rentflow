@@ -20,11 +20,9 @@ export default function ApartmentAdminDashboard() {
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
   const fmt = (n) => "KSh " + (n || 0).toLocaleString();
 
-  useEffect(() => { checkAdmin(); }, []);
-
   const checkAdmin = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { window.location.href = '/apartmentadmin/login'; return; }
+    if (!user) { window.location.assign('/apartmentadmin/login'); return; }
 
     const { data: adminData } = await supabase
       .from('apartment_admins')
@@ -32,13 +30,18 @@ export default function ApartmentAdminDashboard() {
       .eq('email', user.email)
       .single();
 
-    if (!adminData) { window.location.href = '/apartmentadmin/login'; return; }
+    if (!adminData) { window.location.assign('/apartmentadmin/login'); return; }
 
     setAdmin(adminData);
     setApartment(adminData.apartments);
     setRentAmount(adminData.apartments?.rent_amount || 0);
     fetchAll(adminData.apartment_id, adminData.id);
   };
+
+  useEffect(() => {
+    checkAdmin();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchAll = async (apartmentId, adminId) => {
     setLoading(true);
@@ -66,84 +69,25 @@ export default function ApartmentAdminDashboard() {
       showToast("Fill in all required fields"); return;
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email: newLandlord.email,
-      password: newLandlord.password,
-      options: { data: { full_name: newLandlord.name, role: 'landlord' } }
+    const res = await fetch('/api/admin/create-account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: newLandlord.email,
+        password: newLandlord.password,
+        full_name: newLandlord.name,
+        phone: newLandlord.phone,
+        role: 'landlord',
+        extra: { admin_id: admin.id, apartment_id: admin.apartment_id, created_by: admin.email }
+      })
     });
 
-    if (error) { showToast("Error: " + error.message); return; }
+    const data = await res.json();
+    if (!data.success) { showToast("Error: " + data.message); return; }
 
-    if (data.user) {
-      await supabase.from('landlord_profiles').insert({
-        id: data.user.id,
-        admin_id: admin.id,
-        apartment_id: admin.apartment_id,
-        full_name: newLandlord.name,
-        email: newLandlord.email,
-        phone: newLandlord.phone,
-        status: 'approved',
-        created_by: admin.email,
-      });
-
-      await supabase.from('profiles').upsert({
-        id: data.user.id,
-        full_name: newLandlord.name,
-        email: newLandlord.email,
-        role: 'landlord',
-        status: 'approved',
-      });
-    }
-
-    showToast(`✅ Landlord ${newLandlord.name} created!`);
+    showToast(`✅ Landlord ${newLandlord.name} created! Share login: ${newLandlord.email}`);
     setShowCreateLandlord(false);
     setNewLandlord({ name: "", email: "", phone: "", password: "" });
-    fetchAll(admin.apartment_id, admin.id);
-  };
-
-  const approveTenant = async (req) => {
-    await supabase.from('tenant_requests').update({ status: 'approved' }).eq('id', req.id);
-    await supabase.from('tenant_profiles')
-      .update({ 
-        status: 'approved',
-        apartment_id: admin.apartment_id,
-        approved_at: new Date().toISOString()
-      })
-      .eq('email', req.email);
-
-    // Get current apartment rent amount
-    const { data: apt } = await supabase
-      .from('apartments')
-      .select('rent_amount')
-      .eq('id', admin.apartment_id)
-      .single();
-
-    const approvalRentAmount = apt?.rent_amount || 0;
-
-    // Create the tenant rent record with the apartment's fixed rent
-    const { data: existingTenant } = await supabase
-      .from('tenants')
-      .select('id')
-      .eq('email', req.email)
-      .single();
-
-    if (!existingTenant) {
-      await supabase.from('tenants').insert({
-        name: req.name,
-        email: req.email,
-        phone: req.phone,
-        unit: req.unit,
-        status: 'unpaid',
-        apartment_id: admin.apartment_id,
-        rent_amount: approvalRentAmount,
-      });
-    }
-
-    if (approvalRentAmount === 0) {
-      showToast(`⚠️ ${req.name} approved! Set the rent amount above so they can pay.`);
-    } else {
-      showToast(`✅ ${req.name} approved with rent KSh ${approvalRentAmount.toLocaleString()}!`);
-    }
     fetchAll(admin.apartment_id, admin.id);
   };
 
@@ -471,15 +415,10 @@ export default function ApartmentAdminDashboard() {
                     <span className="font-bold text-sm">{v}</span>
                   </div>
                 ))}
-                <div className="flex gap-3 mt-4">
-                  <button onClick={() => approveTenant(req)}
-                    className="flex-1 bg-green-400/10 text-green-400 border border-green-400/20 font-extrabold py-3 rounded-xl text-sm hover:bg-green-400/20 transition">
-                    ✅ Approve
-                  </button>
-                  <button onClick={() => rejectTenant(req)}
-                    className="flex-1 bg-red-400/10 text-red-400 border border-red-400/20 font-extrabold py-3 rounded-xl text-sm hover:bg-red-400/20 transition">
-                    ❌ Reject
-                  </button>
+                <div className="mt-4 bg-blue-400/10 border border-blue-400/20 rounded-xl p-3 text-center">
+                  <span className="text-blue-400 text-xs font-bold">
+                    👁️ For oversight only — the assigned Landlord approves this tenant
+                  </span>
                 </div>
               </div>
             ))}

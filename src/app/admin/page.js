@@ -73,24 +73,25 @@ export default function AdminPanel() {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
-  useEffect(() => {
-    checkAdmin();
-  }, []);
-
   const checkAdmin = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      window.location.href = '/admin/login';
+      window.location.assign('/admin/login');
       return;
     }
     if (user.email !== ADMIN_EMAIL) {
-      window.location.href = '/dashboard';
+      window.location.assign('/dashboard');
       return;
     }
     setUser(user);
     fetchProfiles();
     fetchAllData();
   };
+
+  useEffect(() => {
+    checkAdmin();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchProfiles = async () => {
     setLoading(true);

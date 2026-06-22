@@ -13,15 +13,10 @@ export default function CreateLandlord() {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
-  useEffect(() => {
-    checkAdmin();
-    fetchLandlords();
-  }, []);
-
   const checkAdmin = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || user.email !== ADMIN_EMAIL) {
-      window.location.href = '/dashboard';
+      window.location.assign('/dashboard');
     }
   };
 
@@ -33,6 +28,12 @@ export default function CreateLandlord() {
       .order('created_at', { ascending: false });
     setLandlords(data || []);
   };
+
+  useEffect(() => {
+    checkAdmin();
+    fetchLandlords();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const createLandlord = async () => {
     if (!form.name || !form.email || !form.password) {

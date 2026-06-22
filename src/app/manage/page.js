@@ -18,20 +18,22 @@ export default function ManagerDashboard() {
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
   const fmt = (n) => "KSh " + (n || 0).toLocaleString();
 
-  useEffect(() => { checkManager(); }, []);
-
   const checkManager = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { window.location.href = '/manage/login'; return; }
+    if (!user) { window.location.assign('/manage/login'); return; }
 
     const { data: mgr } = await supabase
       .from('managers').select('*').eq('email', user.email).single();
 
-    if (!mgr) { window.location.href = '/manage/login'; return; }
+    if (!mgr) { window.location.assign('/manage/login'); return; }
 
     setManager(mgr);
     fetchAll(mgr.id);
   };
+
+  useEffect(() => { checkManager();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchAll = async (managerId) => {
     setLoading(true);
@@ -98,34 +100,23 @@ export default function ManagerDashboard() {
       showToast("Fill in all fields"); return;
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email: newSuperAdmin.email,
-      password: newSuperAdmin.password,
-      options: { data: { full_name: newSuperAdmin.name, role: 'super_admin' } }
+    const res = await fetch('/api/admin/create-account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: newSuperAdmin.email,
+        password: newSuperAdmin.password,
+        full_name: newSuperAdmin.name,
+        phone: newSuperAdmin.phone,
+        role: 'super_admin',
+        extra: { manager_id: manager.id, created_by: manager.email }
+      })
     });
 
-    if (error) { showToast("Error: " + error.message); return; }
+    const data = await res.json();
+    if (!data.success) { showToast("Error: " + data.message); return; }
 
-    if (data.user) {
-      await supabase.from('super_admins').insert({
-        id: data.user.id,
-        manager_id: manager.id,
-        full_name: newSuperAdmin.name,
-        email: newSuperAdmin.email,
-        phone: newSuperAdmin.phone,
-        created_by: manager.email,
-      });
-
-      await supabase.from('profiles').upsert({
-        id: data.user.id,
-        full_name: newSuperAdmin.name,
-        email: newSuperAdmin.email,
-        role: 'super_admin',
-        status: 'approved',
-      });
-    }
-
-    showToast(`✅ Super Admin ${newSuperAdmin.name} created!`);
+    showToast(`✅ Super Admin ${newSuperAdmin.name} created! Share login: ${newSuperAdmin.email}`);
     setShowCreateSuperAdmin(false);
     setNewSuperAdmin({ name: "", email: "", phone: "", password: "" });
     fetchAll(manager.id);

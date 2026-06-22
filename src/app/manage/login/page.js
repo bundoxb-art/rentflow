@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function ManagerLogin() {
@@ -9,6 +9,13 @@ export default function ManagerLogin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [registered, setRegistered] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search.includes('registered=true')) {
+      setRegistered(true);
+    }
+  }, []);
 
   const handleOtpChange = (index, value) => {
     if (!/^\d*$/.test(value)) return;
@@ -147,6 +154,11 @@ export default function ManagerLogin() {
               <p className="text-gray-500 text-xs text-center mb-6">Restricted access — authorized managers only</p>
 
               <div className="space-y-4">
+                {registered && (
+                  <div className="bg-green-400/10 text-green-400 border border-green-400/20 rounded-xl p-3 text-sm font-bold mb-4">
+                    ✅ Account created! Please log in to continue.
+                  </div>
+                )}
                 <div>
                   <label className="text-xs text-gray-400 font-bold uppercase tracking-widest block mb-2">Email</label>
                   <input type="email" value={form.email}

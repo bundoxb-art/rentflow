@@ -23,14 +23,10 @@ export default function DeveloperPanel() {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
-  useEffect(() => {
-    checkDeveloper();
-  }, []);
-
   const checkDeveloper = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || user.email !== DEVELOPER_EMAIL) {
-      window.location.href = '/';
+      window.location.assign('/');
       return;
     }
     fetchAll();

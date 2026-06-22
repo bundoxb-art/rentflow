@@ -13,8 +13,6 @@ export default function Properties() {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
-  useEffect(() => { fetchProperties(); }, []);
-
   const fetchProperties = async () => {
     setLoading(true);
     
@@ -22,7 +20,7 @@ export default function Properties() {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      window.location.href = '/landlord/login';
+      window.location.assign('/landlord/login');
       return;
     }
     

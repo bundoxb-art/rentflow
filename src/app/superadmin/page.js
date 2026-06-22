@@ -18,19 +18,21 @@ export default function SuperAdminDashboard() {
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
   const fmt = (n) => "KSh " + (n || 0).toLocaleString();
 
-  useEffect(() => { checkSuperAdmin(); }, []);
-
   const checkSuperAdmin = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { window.location.href = '/superadmin/login'; return; }
+    if (!user) { window.location.assign('/superadmin/login'); return; }
 
     const { data: sa } = await supabase
       .from('super_admins').select('*').eq('email', user.email).single();
 
-    if (!sa) { window.location.href = '/superadmin/login'; return; }
+    if (!sa) { window.location.assign('/superadmin/login'); return; }
     setSuperAdmin(sa);
     fetchAll(sa.manager_id);
   };
+
+  useEffect(() => { checkSuperAdmin();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchAll = async (managerId) => {
     setLoading(true);
@@ -61,7 +63,6 @@ export default function SuperAdminDashboard() {
       showToast("Fill in all required fields including apartment"); return;
     }
 
-    // Check if apartment already has an admin
     const { data: existing } = await supabase
       .from('apartment_admins').select('id').eq('apartment_id', newAdmin.apartment_id).single();
 
@@ -70,35 +71,23 @@ export default function SuperAdminDashboard() {
       return;
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email: newAdmin.email,
-      password: newAdmin.password,
-      options: { data: { full_name: newAdmin.name, role: 'apartment_admin' } }
+    const res = await fetch('/api/admin/create-account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: newAdmin.email,
+        password: newAdmin.password,
+        full_name: newAdmin.name,
+        phone: newAdmin.phone,
+        role: 'apartment_admin',
+        extra: { super_admin_id: superAdmin.id, apartment_id: newAdmin.apartment_id, created_by: superAdmin.email }
+      })
     });
 
-    if (error) { showToast("Error: " + error.message); return; }
+    const data = await res.json();
+    if (!data.success) { showToast("Error: " + data.message); return; }
 
-    if (data.user) {
-      await supabase.from('apartment_admins').insert({
-        id: data.user.id,
-        super_admin_id: superAdmin.id,
-        apartment_id: newAdmin.apartment_id,
-        full_name: newAdmin.name,
-        email: newAdmin.email,
-        phone: newAdmin.phone,
-        created_by: superAdmin.email,
-      });
-
-      await supabase.from('profiles').upsert({
-        id: data.user.id,
-        full_name: newAdmin.name,
-        email: newAdmin.email,
-        role: 'apartment_admin',
-        status: 'approved',
-      });
-    }
-
-    showToast(`✅ Admin ${newAdmin.name} created!`);
+    showToast(`✅ Admin ${newAdmin.name} created! Share login: ${newAdmin.email}`);
     setShowCreateAdmin(false);
     setNewAdmin({ name: "", email: "", phone: "", password: "", apartment_id: "" });
     fetchAll(superAdmin.manager_id);

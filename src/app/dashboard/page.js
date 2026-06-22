@@ -23,16 +23,14 @@ export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
   const [announcement, setAnnouncement] = useState({ title: "", message: "", type: "all", tenant_id: "" });
+  const [tenantRequests, setTenantRequests] = useState([]);
+  const [showRequests, setShowRequests] = useState(false);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
-  useEffect(() => {
-    checkSession();
-  }, []);
-
   const checkSession = async () => {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { window.location.href = '/landlord/login'; return; }
+    if (!session) { window.location.assign('/landlord/login'); return; }
 
     const { data: { user } } = await supabase.auth.getUser();
     setUser(user);
@@ -46,17 +44,18 @@ export default function Dashboard() {
 
     if (!profile && user.email !== 'bundoxb@gmail.com') {
       await supabase.auth.signOut();
-      window.location.href = '/landlord/login';
+      window.location.assign('/landlord/login');
       return;
     }
 
     if (profile?.status !== 'approved' && user.email !== 'bundoxb@gmail.com') {
       await supabase.auth.signOut();
-      window.location.href = '/pending-approval';
+      window.location.assign('/pending-approval');
       return;
     }
 
     fetchData();
+    fetchRequests(user.id);
 
     // Realtime updates
     const sub = supabase.channel('dashboard')
@@ -97,6 +96,57 @@ export default function Dashboard() {
     setTenants(t || []);
     setPayments(p || []);
     setLoading(false);
+  };
+
+  const fetchRequests = async (landlordId) => {
+    const { data } = await supabase
+      .from('tenant_requests')
+      .select('*')
+      .eq('landlord_id', landlordId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+    setTenantRequests(data || []);
+  };
+
+  const approveTenantRequest = async (req) => {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Get this landlord's apartment + fixed rent amount
+    const { data: landlordProfile } = await supabase
+      .from('landlord_profiles').select('apartment_id').eq('id', user.id).single();
+
+    const { data: apt } = await supabase
+      .from('apartments').select('rent_amount').eq('id', landlordProfile?.apartment_id).single();
+
+    await supabase.from('tenant_requests').update({ status: 'approved' }).eq('id', req.id);
+    await supabase.from('tenant_profiles').update({ status: 'approved' }).eq('email', req.email);
+
+    await supabase.from('tenants').insert({
+      name: req.name,
+      email: req.email,
+      phone: req.phone,
+      unit: req.unit,
+      status: 'unpaid',
+      apartment_id: landlordProfile?.apartment_id,
+      landlord_id: user.id,
+      rent_amount: apt?.rent_amount || 0,
+      user_id: req.user_id,
+    });
+
+    await supabase.from('landlord_notifications').update({ read: true }).eq('tenant_request_id', req.id);
+
+    showToast(`✅ ${req.name} approved! They now have portal access.`);
+    fetchRequests(user.id);
+    fetchData();
+  };
+
+  const rejectTenantRequest = async (req) => {
+    await supabase.from('tenant_requests').update({ status: 'rejected' }).eq('id', req.id);
+    await supabase.from('tenant_profiles').update({ status: 'rejected' }).eq('email', req.email);
+    await supabase.from('landlord_notifications').update({ read: true }).eq('tenant_request_id', req.id);
+    showToast(`❌ ${req.name} rejected`);
+    const { data: { user } } = await supabase.auth.getUser();
+    fetchRequests(user.id);
   };
 
   const sendReminder = async (tenant) => {
@@ -162,6 +212,15 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="flex gap-2">
+            <button onClick={() => setShowRequests(true)}
+              className="relative bg-blue-500/10 text-blue-400 border border-blue-400/20 font-extrabold px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm hover:bg-blue-500/20 transition">
+              🔔 Requests
+              {tenantRequests.length > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
+                  {tenantRequests.length}
+                </span>
+              )}
+            </button>
             <button onClick={() => setShowAnnouncement(true)}
               className="bg-blue-500/10 text-blue-400 border border-blue-400/20 font-extrabold px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm hover:bg-blue-500/20 transition">
               📢 Announce
@@ -383,6 +442,56 @@ export default function Dashboard() {
             <p className="text-center text-gray-600 text-xs mt-3">
               🔒 Payments are processed automatically through M-Pesa
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* TENANT REQUESTS MODAL */}
+      {showRequests && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center px-4"
+          onClick={() => setShowRequests(false)}>
+          <div className="bg-[#111827] border border-blue-400/20 rounded-2xl p-7 w-full max-w-lg max-h-[80vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}>
+            <h2 className="font-extrabold text-xl mb-6">🔔 Tenant Requests</h2>
+
+            {tenantRequests.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <div className="text-4xl mb-3">✅</div>
+                No pending requests
+              </div>
+            ) : tenantRequests.map(req => (
+              <div key={req.id} className="bg-[#0d1117] border border-white/5 rounded-2xl p-5 mb-3">
+                <div className="font-extrabold mb-1">{req.name}</div>
+                <div className="text-xs text-gray-500 mb-3">{req.email} · {req.phone}</div>
+                {[
+                  ["Unit Requested", req.unit],
+                  ["Applied", new Date(req.created_at).toLocaleDateString('en-KE')],
+                ].map(([k,v]) => v && (
+                  <div key={k} className="flex justify-between py-1.5 border-b border-white/5 text-sm">
+                    <span className="text-gray-500">{k}</span>
+                    <span className="font-bold">{v}</span>
+                  </div>
+                ))}
+                {req.message && (
+                  <div className="text-xs text-gray-400 italic mt-2">&quot;{req.message}&quot;</div>
+                )}
+                <div className="flex gap-3 mt-4">
+                  <button onClick={() => approveTenantRequest(req)}
+                    className="flex-1 bg-green-400/10 text-green-400 border border-green-400/20 font-extrabold py-2.5 rounded-xl text-sm hover:bg-green-400/20 transition">
+                    ✅ Approve
+                  </button>
+                  <button onClick={() => rejectTenantRequest(req)}
+                    className="flex-1 bg-red-400/10 text-red-400 border border-red-400/20 font-extrabold py-2.5 rounded-xl text-sm hover:bg-red-400/20 transition">
+                    ❌ Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            <button onClick={() => setShowRequests(false)}
+              className="w-full mt-2 bg-white/5 text-gray-400 font-bold py-3 rounded-xl text-sm hover:bg-white/10 transition">
+              Close
+            </button>
           </div>
         </div>
       )}

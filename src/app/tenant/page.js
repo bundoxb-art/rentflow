@@ -43,10 +43,6 @@ export default function TenantPortal() {
     });
   };
 
-  useEffect(() => {
-    checkSession();
-  }, []);
-
   const showToast = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(""), 3000);
@@ -54,7 +50,7 @@ export default function TenantPortal() {
 
   const checkSession = async () => {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { window.location.href = '/tenant/login'; return; }
+    if (!session) { window.location.assign('/tenant/login'); return; }
 
     const { data: { user } } = await supabase.auth.getUser();
     setUser(user);
@@ -77,13 +73,13 @@ export default function TenantPortal() {
     }
 
     if (!tenantProfile || tenantProfile.status === 'pending') {
-      window.location.href = '/tenant-pending';
+      window.location.assign('/tenant-pending');
       return;
     }
 
     if (tenantProfile.status === 'rejected') {
       await supabase.auth.signOut();
-      window.location.href = '/tenant/login?error=rejected';
+      window.location.assign('/tenant/login?error=rejected');
       return;
     }
 

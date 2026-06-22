@@ -5,6 +5,7 @@ import Link from "next/link";
 import Sidebar, { BottomNav } from "@/components/Sidebar";
 
 const fmt = (n) => "KSh " + (n || 0).toLocaleString();
+const createPaymentReference = () => "MP" + Date.now();
 
 export default function Payments() {
   const [payments, setPayments] = useState([]);
@@ -15,7 +16,9 @@ export default function Payments() {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -24,7 +27,7 @@ export default function Payments() {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      window.location.href = '/landlord/login';
+      window.location.assign('/landlord/login');
       return;
     }
     
@@ -49,13 +52,14 @@ export default function Payments() {
   const recordPayment = async (tenant) => {
     const { data: { user } } = await supabase.auth.getUser();
     
+    const reference = createPaymentReference();
     const { error } = await supabase.from("payments").insert({
       tenant_id: tenant.id,
       landlord_id: user.id,
       amount: tenant.rent_amount,
       month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
       method: "mpesa",
-      reference: "MP" + Date.now(),
+      reference,
       status: "confirmed"
     });
     if (error) { showToast("Error: " + error.message); return; }
