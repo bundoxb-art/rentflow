@@ -8,6 +8,7 @@ import Sidebar, { BottomNav } from "@/components/Sidebar";
 export default function Settings() {
   const [user, setUser] = useState(null);
   const [toast, setToast] = useState("");
+  const [diasporaMode, setDiasporaMode] = useState(false);
   const router = useRouter();
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
@@ -64,6 +65,32 @@ export default function Settings() {
                 <span className="font-bold">{v}</span>
               </div>
             ))}
+          </div>
+
+          {/* Diaspora Mode */}
+          <div className="bg-[#111827] border border-blue-400/20 rounded-2xl p-5 mb-4">
+            <div className="flex justify-between items-start mb-3">
+              <div>
+                <div className="font-extrabold">✈️ Diaspora Mode</div>
+                <div className="text-gray-400 text-sm mt-0.5">
+                  Simplified currency view, email-first reports, USD/GBP display alongside KSh
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" className="sr-only peer"
+                  checked={diasporaMode}
+                  onChange={e => setDiasporaMode(e.target.checked)} />
+                <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#f0b429]"></div>
+              </label>
+            </div>
+            {diasporaMode && (
+              <div className="bg-blue-400/10 border border-blue-400/20 rounded-xl p-3">
+                <p className="text-blue-400 text-xs font-bold">✈️ Diaspora mode ON</p>
+                <p className="text-gray-400 text-xs mt-1">
+                  Monthly reports will be emailed to you automatically. All amounts shown in KSh.
+                </p>
+              </div>
+            )}
           </div>
 
           {user?.email === 'bundoxb@gmail.com' && (

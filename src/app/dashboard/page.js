@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
+import MaintenanceView from "@/components/MaintenanceView";
 
 const STATUS = {
   paid: { label: "Paid", color: "text-green-400", bg: "bg-green-400/10 border-green-400/20" },
@@ -73,7 +74,9 @@ export default function Dashboard() {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      window.location.href = '/landlord/login';
+      if (typeof window !== "undefined") {
+        window.location.assign('/landlord/login');
+      }
       return;
     }
 
@@ -426,6 +429,8 @@ export default function Dashboard() {
                 ))}
               </div>
             </div>
+
+            <MaintenanceView tenantId={selected.id} supabase={supabase} showToast={showToast} />
 
             <div className="flex gap-3 mt-4">
               <button onClick={() => sendReminder(selected)}

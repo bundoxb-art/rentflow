@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 
 const fmt = (n) => "KSh " + (n || 0).toLocaleString();
-const generateReceiptId = () => `RF-${Date.now()}`;
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const DAYS = ["S","M","T","W","T","F","S"];
@@ -127,74 +126,80 @@ export default function TenantPortal() {
   };
 
   const downloadReceipt = (payment) => {
-    const receiptId = generateReceiptId();
-  const receiptHtml = `
+    const receiptNo = 'RF-' + payment.id?.slice(0, 8).toUpperCase();
+    const receiptDate = new Date(payment.created_at).toLocaleDateString('en-KE', {
+      day: 'numeric', month: 'long', year: 'numeric'
+    });
+
+    const receiptHtml = `
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
+  <title>Receipt ${receiptNo}</title>
   <style>
-    body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; }
-    .header { text-align: center; border-bottom: 3px solid #f0b429; padding-bottom: 20px; margin-bottom: 20px; }
-    .logo { font-size: 28px; font-weight: bold; color: #f0b429; }
-    .receipt-no { font-size: 12px; color: #666; }
-    .amount { font-size: 36px; font-weight: bold; color: #22c984; text-align: center; margin: 20px 0; }
-    .details { background: #f9f9f9; padding: 15px; border-radius: 8px; }
-    .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
-    .label { color: #666; font-size: 13px; }
-    .value { font-weight: bold; font-size: 13px; }
-    .footer { text-align: center; margin-top: 30px; color: #999; font-size: 11px; }
-    .stamp { text-align: center; margin: 20px 0; }
-    .paid-stamp { display: inline-block; border: 3px solid #22c984; color: #22c984; padding: 8px 20px; border-radius: 8px; font-size: 24px; font-weight: bold; transform: rotate(-15deg); }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #1a1a2e; }
+    .header { background: #111827; color: white; padding: 20px; border-radius: 12px 12px 0 0; text-align: center; }
+    .logo { font-size: 24px; font-weight: 900; color: #f0b429; }
+    .logo span { color: white; }
+    .badge { display: inline-block; background: #f0b429; color: black; font-size: 10px; font-weight: bold; padding: 3px 10px; border-radius: 20px; margin-top: 6px; }
+    .receipt-no { color: #aaa; font-size: 12px; margin-top: 4px; }
+    .body { border: 2px solid #111827; border-top: none; border-radius: 0 0 12px 12px; padding: 24px; }
+    .amount-box { background: #f0f9ff; border: 2px solid #0ea5e9; border-radius: 12px; padding: 20px; text-align: center; margin: 20px 0; }
+    .amount { font-size: 40px; font-weight: 900; color: #0ea5e9; }
+    .label { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 1px; }
+    .paid-badge { background: #dcfce7; border: 2px solid #16a34a; color: #16a34a; display: inline-block; padding: 6px 20px; border-radius: 8px; font-weight: bold; font-size: 18px; margin: 10px 0; transform: rotate(-3deg); display: inline-block; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+    td { padding: 10px 0; border-bottom: 1px solid #eee; font-size: 13px; }
+    td:last-child { text-align: right; font-weight: bold; }
+    .kra-box { background: #fffbeb; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px; margin-top: 16px; }
+    .kra-label { font-size: 10px; font-weight: bold; color: #92400e; text-transform: uppercase; }
+    .kra-value { font-size: 11px; color: #78350f; margin-top: 4px; font-family: monospace; }
+    .footer { text-align: center; margin-top: 20px; color: #999; font-size: 11px; }
   </style>
 </head>
 <body>
   <div class="header">
-    <div class="logo">RentFlow</div>
-    <div class="receipt-no">OFFICIAL PAYMENT RECEIPT</div>
-    <div class="receipt-no">Receipt #: ${receiptId}</div>
+    <div class="logo">Rent<span>Flow</span></div>
+    <div class="badge">OFFICIAL RECEIPT</div>
+    <div class="receipt-no">Receipt No: ${receiptNo}</div>
   </div>
-  
-  <div class="amount">${fmt(payment.amount)}</div>
-  
-  <div class="stamp">
-    <div class="paid-stamp">✓ PAID</div>
-  </div>
-  
-  <div class="details">
-    <div class="row">
-      <span class="label">Tenant Name</span>
-      <span class="value">${tenant?.name || 'Tenant'}</span>
+  <div class="body">
+    <div class="amount-box">
+      <div class="label">Amount Paid</div>
+      <div class="amount">KSh ${Number(payment.amount).toLocaleString()}</div>
+      <div class="paid-badge">✓ PAID</div>
     </div>
-    <div class="row">
-      <span class="label">Unit</span>
-      <span class="value">Unit ${tenant?.unit || '—'}</span>
+
+    <table>
+      <tr><td>Receipt Number</td><td>${receiptNo}</td></tr>
+      <tr><td>Tenant Name</td><td>${tenant?.name || user?.user_metadata?.full_name || '—'}</td></tr>
+      <tr><td>Unit</td><td>Unit ${tenant?.unit || '—'}</td></tr>
+      <tr><td>Payment Period</td><td>${payment.month}</td></tr>
+      <tr><td>Amount (KES)</td><td>${Number(payment.amount).toLocaleString()}</td></tr>
+      <tr><td>VAT (0% — Residential)</td><td>0.00</td></tr>
+      <tr><td><strong>Total Paid (KES)</strong></td><td><strong>${Number(payment.amount).toLocaleString()}</strong></td></tr>
+      <tr><td>Payment Method</td><td>${(payment.method || 'M-PESA').toUpperCase()}</td></tr>
+      <tr><td>Transaction Ref</td><td>${payment.reference || '—'}</td></tr>
+      <tr><td>Date Paid</td><td>${receiptDate}</td></tr>
+    </table>
+
+    <div class="kra-box">
+      <div class="kra-label">🇰🇪 KRA eTIMS Reference</div>
+      <div class="kra-value">
+        Receipt: ${receiptNo} | Date: ${receiptDate}<br/>
+        Taxpayer: RentFlow Properties | PIN: Pending KRA Registration<br/>
+        Transaction Type: Residential Rent | VAT Category: Exempt
+      </div>
     </div>
-    <div class="row">
-      <span class="label">Payment Month</span>
-      <span class="value">${payment.month}</span>
+
+    <div class="footer">
+      <p>This is an official digital receipt generated by RentFlow</p>
+      <p>Built by BundoxxBrian · Mombasa, Kenya 🇰🇪</p>
+      <p>Generated: ${new Date().toLocaleString('en-KE')}</p>
+      <p style="margin-top:6px; color: #f0b429; font-weight:bold;">rentflow-lovat-omega.vercel.app</p>
     </div>
-    <div class="row">
-      <span class="label">Amount Paid</span>
-      <span class="value">${fmt(payment.amount)}</span>
-    </div>
-    <div class="row">
-      <span class="label">Payment Method</span>
-      <span class="value">${payment.method?.toUpperCase() || 'M-PESA'}</span>
-    </div>
-    <div class="row">
-      <span class="label">M-Pesa Reference</span>
-      <span class="value">${payment.reference || '—'}</span>
-    </div>
-    <div class="row">
-      <span class="label">Date Paid</span>
-      <span class="value">${new Date(payment.created_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-    </div>
-  </div>
-  
-  <div class="footer">
-    <p>This is an official receipt generated by RentFlow</p>
-    <p>🇰🇪 RentFlow · Collect Rent. Stop Chasing.</p>
-    <p>Generated: ${new Date().toLocaleString('en-KE')}</p>
   </div>
 </body>
 </html>`;
@@ -203,7 +208,7 @@ export default function TenantPortal() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `RentFlow-Receipt-${payment.month?.replace(' ', '-')}.html`;
+    a.download = `RentFlow-Receipt-${receiptNo}.html`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

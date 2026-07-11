@@ -40,14 +40,20 @@ export default function Home() {
         <div className="inline-block bg-[#f0b429]/10 text-[#f0b429] text-xs font-bold px-4 py-2 rounded-full mb-6 border border-[#f0b429]/20">
           🇰🇪 Built for Kenyan Landlords
         </div>
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold leading-tight mb-6">
-          Collect Rent.<br />
-          <span className="text-[#f0b429]">Stop Chasing.</span>
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-tight mb-6">
+          Property Management<br />
+          <span className="text-[#f0b429]">Built for Kenya.</span>
         </h1>
-        <p className="text-gray-400 text-base sm:text-lg md:text-xl max-w-2xl mx-auto mb-8 sm:mb-10">
-          RentFlow helps landlords track who has paid, send automatic reminders,
-          and collect rent via M-Pesa — all from one simple dashboard.
+
+        <p className="text-gray-400 text-lg sm:text-xl leading-relaxed mb-8 max-w-2xl mx-auto">
+          RentFlow gives property companies, managers and landlords one platform to manage apartments,
+          collect rent via M-Pesa, and track every shilling — from portfolio owner down to tenant.
         </p>
+
+        <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-2 text-sm text-gray-300 mb-8">
+          <span className="text-[#f0b429]">●</span>
+          Manager → Super Admin → Apartment Admin → Landlord → Tenant
+        </div>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link href="/auth" className="bg-[#f0b429] text-black font-bold px-6 sm:px-8 py-3 sm:py-4 rounded-xl text-sm sm:text-base hover:opacity-90 transition text-center">
             Start Free — No Credit Card
@@ -88,19 +94,17 @@ export default function Home() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 max-w-5xl mx-auto">
           {[
-            { icon: "📊", color: "text-[#f0b429]", title: "Live Payment Dashboard", desc: "See instantly who has paid, who hasn't, and your total collection rate across all properties." },
-            { icon: "📱", color: "text-green-400", title: "M-Pesa Integration", desc: "Tenants pay directly via M-Pesa STK Push. Payment confirms automatically — no manual updates." },
-            { icon: "🔔", color: "text-blue-400", title: "Automatic Reminders", desc: "RentFlow sends SMS reminders to unpaid tenants before and after the due date — automatically." },
-            { icon: "🏢", color: "text-purple-400", title: "Multi-Property Support", desc: "Manage all your properties and units from one account with per-property performance reports." },
-            { icon: "🧾", color: "text-pink-400", title: "Digital Receipts", desc: "Every payment generates a professional receipt sent to the tenant automatically." },
-            { icon: "👤", color: "text-orange-400", title: "Tenant Portal", desc: "Tenants log in to see their balance, due date, and payment history — no more disputes." },
+            { icon: "🏢", title: "Multi-Apartment Portfolio", desc: "One manager account for unlimited apartments across Kenya. Add properties, assign admins, track all revenue in one place." },
+            { icon: "👥", title: "4-Tier Access Control", desc: "Manager → Super Admin → Apartment Admin → Landlord. Each person only sees what they need. Secure and structured." },
+            { icon: "📱", title: "M-Pesa Integration (Coming Soon)", desc: "STK Push payments directly to your Paybill. Tenants pay from their phones. Receipts generate automatically." },
+            { icon: "🏦", title: "Bank Transfer Support", desc: "Not just M-Pesa — tenants can pay via bank transfer too. All payments tracked in one place." },
+            { icon: "📄", title: "KRA-Ready Digital Receipts", desc: "Professional receipts with receipt numbers, payment references and VAT-exempt classification for residential rent." },
+            { icon: "📊", title: "Income & Expense Reports", desc: "Track rent collected vs expenses incurred. Export to CSV for your accountant or KRA returns." },
           ].map((f, i) => (
-            <div key={i} className="bg-[#111827] border border-white/10 rounded-2xl p-5 sm:p-6 flex gap-3 sm:gap-4 hover:border-[#f0b429]/30 transition">
-              <div className={`text-2xl sm:text-3xl ${f.color} flex-shrink-0`}>{f.icon}</div>
-              <div>
-                <h3 className="font-bold text-sm sm:text-base mb-1">{f.title}</h3>
-                <p className="text-gray-400 text-xs sm:text-sm">{f.desc}</p>
-              </div>
+            <div key={i} className="bg-[#111827] border border-white/10 rounded-2xl p-5 sm:p-6 hover:border-[#f0b429]/30 transition">
+              <div className="text-3xl mb-4">{f.icon}</div>
+              <h3 className="font-extrabold mb-2">{f.title}</h3>
+              <p className="text-gray-400 text-sm leading-relaxed">{f.desc}</p>
             </div>
           ))}
         </div>
@@ -132,7 +136,19 @@ export default function Home() {
       <section id="pricing" className="py-16 sm:py-20 px-4 sm:px-6">
         <div className="max-w-3xl mx-auto text-center mb-10 sm:mb-14">
           <h2 className="text-2xl sm:text-3xl font-bold mb-4">Simple, Honest Pricing</h2>
-          <p className="text-gray-400 text-sm sm:text-base">Start free. Upgrade when you're ready.</p>
+          <p className="text-gray-400 text-sm sm:text-base">Start free. Upgrade when you&apos;re ready.</p>
+        </div>
+        <div className="bg-[#f0b429]/10 border border-[#f0b429]/20 rounded-2xl p-6 text-center mb-8 max-w-3xl mx-auto">
+          <div className="text-2xl mb-2">🎁</div>
+          <div className="font-extrabold text-xl mb-2">Start Free — 30 Days, No Card Required</div>
+          <p className="text-gray-400 text-sm mb-4">
+            Get full access to all features for 30 days. No credit card. No commitment.
+            After your trial, plans start at KSh 2,500/month.
+          </p>
+          <a href="/manage/register"
+            className="inline-block bg-[#f0b429] text-black font-extrabold px-8 py-3.5 rounded-xl text-sm hover:opacity-90 transition">
+            Start Free Trial →
+          </a>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 max-w-5xl mx-auto">
           {[
@@ -168,20 +184,59 @@ export default function Home() {
       </section>
 
       {/* FOOTER */}
-      <footer className="bg-[#0d1117] border-t border-white/10 px-4 sm:px-8 py-8 sm:py-10">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div className="text-xl font-bold text-[#f0b429]">Rent<span className="text-white">Flow</span></div>
-          <p className="text-gray-500 text-xs sm:text-sm text-center">
-            © 2026 RentFlow. Built for landlords across Kenya & East Africa.
-          </p>
-          <div className="flex gap-4 sm:gap-6 text-xs sm:text-sm text-gray-500">
-            <a href="#" className="hover:text-white transition">Privacy</a>
-            <a href="#" className="hover:text-white transition">Terms</a>
-            <a href="#" className="hover:text-white transition">Contact</a>
-            <span className="text-gray-700">|</span>
-            <Link href="/login" className="hover:text-white transition">Login</Link>
-            <span className="text-gray-700">|</span>
-            <Link href="/portal" className="text-gray-600 hover:text-gray-400 transition">Staff Login</Link>
+      <footer className="bg-[#0d1117] border-t border-white/10 px-4 sm:px-8 py-10">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex flex-col sm:flex-row justify-between gap-8 mb-8">
+            <div>
+              <div className="text-xl font-bold text-[#f0b429] mb-2">
+                Rent<span className="text-white">Flow</span>
+              </div>
+              <p className="text-gray-500 text-sm max-w-xs">
+                Property management software built for Kenyan landlords and property companies.
+              </p>
+              <div className="mt-3 text-xs text-gray-600">
+                🐝 Built by <span className="text-gray-400 font-bold">BundoxxBrian</span> · Mombasa, Kenya
+                <br />
+                Focused. Fast. Reliable.
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-8 text-sm">
+              <div>
+                <div className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-3">Product</div>
+                <div className="space-y-2">
+                  <Link href="/auth" className="block text-gray-400 hover:text-white transition">Login</Link>
+                  <Link href="/tenant/signup" className="block text-gray-400 hover:text-white transition">Tenant Signup</Link>
+                  <Link href="/portal" className="block text-gray-400 hover:text-white transition">Staff Portal</Link>
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-3">Legal</div>
+                <div className="space-y-2">
+                  <Link href="/privacy" className="block text-gray-400 hover:text-white transition">Privacy Policy</Link>
+                  <Link href="/terms" className="block text-gray-400 hover:text-white transition">Terms of Service</Link>
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-3">Support</div>
+                <div className="space-y-2">
+                  <Link href="/contact" className="block text-gray-400 hover:text-white transition">Contact Us</Link>
+                  <a href="mailto:bundoxb@gmail.com" className="block text-gray-400 hover:text-white transition">Email Support</a>
+                  <a href="https://wa.me/254759435210" target="_blank" rel="noreferrer" className="block text-gray-400 hover:text-white transition">WhatsApp</a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-white/10 pt-6 flex flex-col sm:flex-row justify-between items-center gap-3">
+            <p className="text-gray-600 text-xs">
+              © {new Date().getFullYear()} RentFlow. All rights reserved.
+            </p>
+            <div className="flex gap-4 text-xs text-gray-600">
+              <span>🇰🇪 Made in Kenya</span>
+              <span>·</span>
+              <Link href="/auth" className="hover:text-gray-400 transition">Staff Login</Link>
+            </div>
           </div>
         </div>
       </footer>

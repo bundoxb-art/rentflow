@@ -11,6 +11,86 @@ const PAYMENTS = [
 
 const fmt = (n) => "KSh " + n.toLocaleString();
 
+function MaintenanceForm({ tenant, user, showToast }) {
+  const [issueType, setIssueType] = useState("plumbing");
+  const [details, setDetails] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!details.trim()) {
+      showToast("Please describe the issue before submitting.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.from("maintenance_requests").insert({
+        tenant_id: tenant?.id ?? null,
+        user_id: user?.id ?? null,
+        issue_type: issueType,
+        description: details.trim(),
+        status: "new",
+        created_at: new Date().toISOString(),
+      });
+
+      if (error) throw error;
+
+      setDetails("");
+      setIssueType("plumbing");
+      showToast("Maintenance request submitted successfully.");
+    } catch (err) {
+      console.error("Maintenance request failed:", err);
+      showToast("We couldn't submit that request right now.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="bg-[#111827] border border-white/5 rounded-2xl p-5 space-y-4">
+      <div>
+        <div className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-2">Report a maintenance issue</div>
+        <div className="text-sm text-gray-400">Let us know what needs attention in your unit.</div>
+      </div>
+
+      <div>
+        <label className="text-xs text-gray-500 font-bold uppercase tracking-wider block mb-2">Issue Type</label>
+        <select
+          value={issueType}
+          onChange={(e) => setIssueType(e.target.value)}
+          className="w-full bg-[#0d1117] border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#f0b429] transition"
+        >
+          <option value="plumbing">Plumbing</option>
+          <option value="electrical">Electrical</option>
+          <option value="appliance">Appliance</option>
+          <option value="security">Security</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="text-xs text-gray-500 font-bold uppercase tracking-wider block mb-2">Details</label>
+        <textarea
+          value={details}
+          onChange={(e) => setDetails(e.target.value)}
+          rows={4}
+          placeholder="Describe the issue, how urgent it is, and anything helpful for the maintenance team."
+          className="w-full bg-[#0d1117] border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#f0b429] transition resize-none"
+        />
+      </div>
+
+      <button
+        type="submit"
+        disabled={submitting}
+        className="w-full bg-[#f0b429] text-black font-extrabold py-3 rounded-xl text-sm hover:opacity-90 transition disabled:opacity-70"
+      >
+        {submitting ? "Submitting..." : "Submit Maintenance Request"}
+      </button>
+    </form>
+  );
+}
+
 export default function TenantPortal() {
   const [tab, setTab] = useState("home");
   const [showPay, setShowPay] = useState(false);
@@ -504,23 +584,21 @@ export default function TenantPortal() {
         {/* SUPPORT TAB */}
         {tab === "support" && (
           <div className="space-y-4">
-            <h2 className="text-lg font-extrabold mb-2">Support & Help</h2>
-            {[
-              { icon: "📞", title: "Call Landlord", sub: "John Mutua · +254 700 123 456", color: "text-green-400", bg: "bg-green-400/10 border-green-400/20" },
-              { icon: "💬", title: "WhatsApp Landlord", sub: "Send a message directly", color: "text-green-400", bg: "bg-green-400/10 border-green-400/20" },
-              { icon: "🔧", title: "Report Maintenance Issue", sub: "Plumbing, electricity, or other repairs", color: "text-blue-400", bg: "bg-blue-400/10 border-blue-400/20" },
-              { icon: "📄", title: "Request Rent Statement", sub: "Get a full payment history document", color: "text-[#f0b429]", bg: "bg-[#f0b429]/10 border-[#f0b429]/20" },
-            ].map((s, i) => (
-              <button key={i} onClick={() => showToast(`Opening ${s.title}...`)}
-                className={`w-full bg-[#111827] border ${s.bg} rounded-2xl p-5 flex items-center gap-4 hover:opacity-90 transition text-left`}>
-                <div className={`text-2xl w-12 h-12 rounded-xl ${s.bg} flex items-center justify-center flex-shrink-0`}>{s.icon}</div>
-                <div>
-                  <div className={`font-bold text-sm ${s.color}`}>{s.title}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">{s.sub}</div>
-                </div>
-                <div className="ml-auto text-gray-600">→</div>
-              </button>
-            ))}
+            <h2 className="text-lg font-extrabold">Support & Requests 💬</h2>
+
+            <MaintenanceForm tenant={tenant} user={user} showToast={showToast} />
+
+            <button onClick={async () => {
+                await supabase.auth.signOut();
+                window.location.href = '/tenant/login';
+              }}
+              className="w-full bg-[#111827] border border-red-400/20 rounded-2xl p-4 flex items-center gap-4 text-left hover:bg-red-400/5 transition">
+              <div className="text-2xl w-12 h-12 rounded-xl bg-red-400/10 flex items-center justify-center flex-shrink-0">🚪</div>
+              <div>
+                <div className="font-bold text-sm text-red-400">Log Out</div>
+                <div className="text-xs text-gray-500 mt-0.5">Sign out of your account</div>
+              </div>
+            </button>
           </div>
         )}
       </div>
@@ -556,6 +634,51 @@ export default function TenantPortal() {
                 <button onClick={handlePay} className="w-full bg-[#f0b429] text-black font-extrabold py-4 rounded-xl text-sm hover:opacity-90 transition">
                   Send M-Pesa Prompt →
                 </button>
+
+                {/* Bank Transfer Option */}
+                <div className="bg-[#111827] border border-white/5 rounded-2xl p-5 mt-4">
+                  <div className="font-bold mb-3">🏦 Pay via Bank Transfer</div>
+                  <div className="space-y-2 text-sm mb-4">
+                    {[
+                      ["Bank", "NCBA Bank Kenya"],
+                      ["Account Name", "RentFlow Properties"],
+                      ["Account No.", "488007"],
+                      ["Branch", "Mombasa"],
+                      ["Reference", `Unit ${tenant?.unit || '—'} — ${user?.user_metadata?.full_name}`],
+                    ].map(([k, v]) => (
+                      <div key={k} className="flex justify-between py-2 border-b border-white/5">
+                        <span className="text-gray-500">{k}</span>
+                        <span className="font-bold text-xs">{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="bg-yellow-400/10 border border-yellow-400/20 rounded-xl p-3 mb-4">
+                    <p className="text-yellow-400 text-xs">
+                      ⚠️ After transferring, click below to notify your landlord. They will confirm receipt.
+                    </p>
+                  </div>
+                  <button onClick={async () => {
+                    const ref = prompt("Enter your bank transfer reference number:");
+                    if (!ref) return;
+                    const res = await fetch('/api/payments/bank-transfer', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        tenant_id: tenant?.id,
+                        amount: tenant?.rent_amount,
+                        reference: ref,
+                        landlord_id: tenant?.landlord_id,
+                        apartment_id: tenant?.apartment_id,
+                      })
+                    });
+                    const data = await res.json();
+                    if (data.success) showToast("✅ Bank transfer recorded! Landlord will confirm.");
+                    else showToast("❌ " + data.message);
+                  }}
+                    className="w-full bg-blue-500/10 text-blue-400 border border-blue-400/20 font-extrabold py-3 rounded-xl text-sm hover:bg-blue-500/20 transition">
+                    🏦 I Have Transferred — Notify Landlord
+                  </button>
+                </div>
               </>
             ) : (
               <>
@@ -576,7 +699,7 @@ export default function TenantPortal() {
                 </div>
 
                 <button onClick={handlePay} className="w-full bg-green-400 text-black font-extrabold py-4 rounded-xl text-sm hover:opacity-90 transition">
-                  ✓ I've Completed the Payment
+                  ✓ I&apos;ve Completed the Payment
                 </button>
                 <button onClick={() => { setShowPay(false); setPayStep(1); }}
                   className="w-full mt-3 bg-white/5 text-gray-400 font-bold py-3 rounded-xl text-sm hover:bg-white/10 transition">

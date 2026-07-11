@@ -262,9 +262,9 @@ export default function AuthPage() {
           </p>
           <div className="grid grid-cols-3 gap-4 mb-12">
             {[
-              { val: "98%", label: "Collection Rate" },
-              { val: "8hrs", label: "Saved Per Month" },
-              { val: "5min", label: "Setup Time" },
+              { val: "M-Pesa", label: "Payments Built-in" },
+              { val: "4-Tier", label: "Role Hierarchy" },
+              { val: "KSh", label: "Kenya-First" },
             ].map((s, i) => (
               <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center">
                 <div className="text-2xl font-extrabold text-[#f0b429]">{s.val}</div>
@@ -274,18 +274,18 @@ export default function AuthPage() {
           </div>
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
             <p className="text-gray-300 text-sm leading-relaxed mb-4">
-              &quot;RentFlow changed how I manage my 12 units in Mombasa.&quot;
+              &quot;Built specifically for Kenyan property managers — with M-Pesa integration, multi-apartment support, and automatic receipts.&quot;
             </p>
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-[#f0b429] flex items-center justify-center text-black font-bold text-sm">JM</div>
+              <div className="w-9 h-9 rounded-full bg-[#f0b429] flex items-center justify-center text-black font-bold text-sm">RF</div>
               <div>
-                <div className="text-white text-sm font-bold">James Mwangi</div>
-                <div className="text-gray-500 text-xs">Landlord · Mombasa, Kenya</div>
+                <div className="text-white text-sm font-bold">RentFlow Pro</div>
+                <div className="text-gray-500 text-xs">Built in Mombasa, Kenya 🇰🇪</div>
               </div>
             </div>
           </div>
         </div>
-        <div className="text-gray-600 text-xs relative z-10">© 2025 RentFlow · Built for East Africa</div>
+        <div className="text-gray-600 text-xs relative z-10">© 2026 RentFlow · Built for East Africa</div>
       </div>
 
       {/* RIGHT PANEL */}
