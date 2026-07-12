@@ -129,77 +129,99 @@ export default function TenantPortal() {
   };
 
   const checkSession = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { window.location.assign('/tenant/login'); return; }
+    setLoading(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    // Get current session
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      window.location.href = '/tenant/login';
+      return;
+    }
+
+    const user = session.user;
     setUser(user);
 
-    // Get tenant profile by ID first (most reliable)
-    let { data: tenantProfile } = await supabase
+    // Get tenant profile — try by ID first, then email
+    let profile = null;
+
+    const { data: byId } = await supabase
       .from('tenant_profiles')
       .select('*')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
-    // Fallback: try by email
-    if (!tenantProfile) {
+    profile = byId;
+
+    if (!profile) {
       const { data: byEmail } = await supabase
         .from('tenant_profiles')
         .select('*')
         .eq('email', user.email)
-        .single();
-      tenantProfile = byEmail;
+        .maybeSingle();
+      profile = byEmail;
+
+      // Link profile to user ID
+      if (profile) {
+        await supabase.from('tenant_profiles')
+          .update({ id: user.id })
+          .eq('email', user.email);
+      }
     }
 
-    if (!tenantProfile || tenantProfile.status === 'pending') {
-      window.location.assign('/tenant-pending');
+    if (!profile || profile.status === 'pending') {
+      window.location.href = '/tenant-pending';
       return;
     }
 
-    if (tenantProfile.status === 'rejected') {
+    if (profile.status === 'rejected') {
       await supabase.auth.signOut();
-      window.location.assign('/tenant/login?error=rejected');
+      window.location.href = '/tenant/login?error=rejected';
       return;
     }
 
-    // Get THIS tenant's rent record - try user_id first, then email
-    let { data: tenantData } = await supabase
+    setTenantProfile(profile);
+
+    // Get tenant rent record — try by user_id, then email
+    let tenantData = null;
+
+    const { data: byUserId } = await supabase
       .from('tenants')
       .select('*')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
+
+    tenantData = byUserId;
 
     if (!tenantData) {
-      const { data: byEmail } = await supabase
+      const { data: tenantByEmail } = await supabase
         .from('tenants')
         .select('*')
         .eq('email', user.email)
-        .single();
+        .maybeSingle();
 
-      if (byEmail) {
-        // Link it permanently to this user
-        await supabase.from('tenants').update({ user_id: user.id }).eq('id', byEmail.id);
-        tenantData = byEmail;
+      if (tenantByEmail) {
+        // Link permanently
+        await supabase.from('tenants')
+          .update({ user_id: user.id })
+          .eq('id', tenantByEmail.id);
+        tenantData = tenantByEmail;
       }
     }
 
     setTenant(tenantData);
-    setTenantProfile(tenantProfile);
 
+    // Get payments, announcements in parallel
     if (tenantData) {
-      const { data: pays } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('tenant_id', tenantData.id)
-        .order('created_at', { ascending: false });
-      setPayments(pays || []);
+      const [
+        { data: pays },
+        { data: ann }
+      ] = await Promise.all([
+        supabase.from('payments').select('*').eq('tenant_id', tenantData.id).order('created_at', { ascending: false }),
+        supabase.from('announcements').select('*').or(`type.eq.all,tenant_id.eq.${tenantData.id}`).order('created_at', { ascending: false })
+      ]);
 
-      const { data: ann } = await supabase
-        .from('announcements')
-        .select('*')
-        .or(`type.eq.all,tenant_id.eq.${tenantData.id}`)
-        .order('created_at', { ascending: false });
+      setPayments(pays || []);
       setAnnouncements(ann || []);
     }
 
