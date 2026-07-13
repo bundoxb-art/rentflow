@@ -6,7 +6,7 @@ import Link from "next/link";
 export default function TenantLogin() {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({ email: "", password: "" });
-  const [otp, setOtp] = useState(["", "", "", "", "", "", ""]);
+  const [otp, setOtp] = useState(["","","","","","",""]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
@@ -228,7 +228,7 @@ export default function TenantLogin() {
     });
 
     setInfo("✅ New code sent! Check your inbox.");
-    setOtp(["", "", "", "", "", "", ""]);
+    setOtp(["","","","","","",""]);
     setTimeout(() => document.getElementById('t-otp-0')?.focus(), 100);
     setLoading(false);
   };
@@ -446,7 +446,7 @@ export default function TenantLogin() {
 
               <div className="flex justify-between text-sm">
                 <button
-                  onClick={() => { setStep(1); setOtp(["", "", "", "", "", "", ""]); setError(""); setInfo(""); }}
+                  onClick={() => { setStep(1); setOtp(["","","","","","",""]); setError(""); setInfo(""); }}
                   className="text-gray-500 hover:text-white transition">
                   ← Back
                 </button>

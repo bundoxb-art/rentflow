@@ -130,102 +130,84 @@ export default function TenantPortal() {
 
   const checkSession = async () => {
     setLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
 
-    // Get current session
-    const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        window.location.href = '/tenant/login';
+        return;
+      }
 
-    if (!session) {
+      const user = session.user;
+      setUser(user);
+
+      // Get tenant profile
+      let profile = null;
+      const { data: p1 } = await supabase
+        .from('tenant_profiles').select('*')
+        .eq('id', user.id).maybeSingle();
+      profile = p1;
+
+      if (!profile) {
+        const { data: p2 } = await supabase
+          .from('tenant_profiles').select('*')
+          .eq('email', user.email).maybeSingle();
+        profile = p2;
+      }
+
+      if (!profile || profile.status === 'pending') {
+        window.location.href = '/tenant-pending';
+        return;
+      }
+
+      if (profile.status === 'rejected') {
+        await supabase.auth.signOut();
+        window.location.href = '/tenant/login';
+        return;
+      }
+
+      setTenantProfile(profile);
+
+      // Get tenant data
+      let tenantData = null;
+      const { data: t1 } = await supabase
+        .from('tenants').select('*')
+        .eq('user_id', user.id).maybeSingle();
+      tenantData = t1;
+
+      if (!tenantData) {
+        const { data: t2 } = await supabase
+          .from('tenants').select('*')
+          .eq('email', user.email).maybeSingle();
+        if (t2) {
+          await supabase.from('tenants')
+            .update({ user_id: user.id })
+            .eq('id', t2.id);
+          tenantData = t2;
+        }
+      }
+
+      setTenant(tenantData);
+
+      if (tenantData) {
+        const [{ data: pays }, { data: ann }] = await Promise.all([
+          supabase.from('payments').select('*')
+            .eq('tenant_id', tenantData.id)
+            .order('created_at', { ascending: false }),
+          supabase.from('announcements').select('*')
+            .or(`type.eq.all,tenant_id.eq.${tenantData.id}`)
+            .order('created_at', { ascending: false })
+        ]);
+        setPayments(pays || []);
+        setAnnouncements(ann || []);
+      }
+
+    } catch (err) {
+      console.error('Session check error:', err);
       window.location.href = '/tenant/login';
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    const user = session.user;
-    setUser(user);
-
-    // Get tenant profile — try by ID first, then email
-    let profile = null;
-
-    const { data: byId } = await supabase
-      .from('tenant_profiles')
-      .select('*')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    profile = byId;
-
-    if (!profile) {
-      const { data: byEmail } = await supabase
-        .from('tenant_profiles')
-        .select('*')
-        .eq('email', user.email)
-        .maybeSingle();
-      profile = byEmail;
-
-      // Link profile to user ID
-      if (profile) {
-        await supabase.from('tenant_profiles')
-          .update({ id: user.id })
-          .eq('email', user.email);
-      }
-    }
-
-    if (!profile || profile.status === 'pending') {
-      window.location.href = '/tenant-pending';
-      return;
-    }
-
-    if (profile.status === 'rejected') {
-      await supabase.auth.signOut();
-      window.location.href = '/tenant/login?error=rejected';
-      return;
-    }
-
-    setTenantProfile(profile);
-
-    // Get tenant rent record — try by user_id, then email
-    let tenantData = null;
-
-    const { data: byUserId } = await supabase
-      .from('tenants')
-      .select('*')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    tenantData = byUserId;
-
-    if (!tenantData) {
-      const { data: tenantByEmail } = await supabase
-        .from('tenants')
-        .select('*')
-        .eq('email', user.email)
-        .maybeSingle();
-
-      if (tenantByEmail) {
-        // Link permanently
-        await supabase.from('tenants')
-          .update({ user_id: user.id })
-          .eq('id', tenantByEmail.id);
-        tenantData = tenantByEmail;
-      }
-    }
-
-    setTenant(tenantData);
-
-    // Get payments, announcements in parallel
-    if (tenantData) {
-      const [
-        { data: pays },
-        { data: ann }
-      ] = await Promise.all([
-        supabase.from('payments').select('*').eq('tenant_id', tenantData.id).order('created_at', { ascending: false }),
-        supabase.from('announcements').select('*').or(`type.eq.all,tenant_id.eq.${tenantData.id}`).order('created_at', { ascending: false })
-      ]);
-
-      setPayments(pays || []);
-      setAnnouncements(ann || []);
-    }
-
-    setLoading(false);
   };
 
   const handlePay = () => {
